@@ -20,10 +20,10 @@ public class StoreEventProducerService {
     private static final Logger log = LoggerFactory.getLogger(StoreEventProducerService.class);
     private static final long PUBLISH_TIMEOUT_SECONDS = 5;
 
-    private final KafkaTemplate<String, JsonNode> kafkaTemplate;
+    private final KafkaTemplate<String, StoreRecord> kafkaTemplate;
     private final String topic;
 
-    public StoreEventProducerService(KafkaTemplate<String, JsonNode> storePayloadKafkaTemplate,
+    public StoreEventProducerService(KafkaTemplate<String, StoreRecord> storePayloadKafkaTemplate,
                                       @Value("${kafka.topic.store-events}") String topic) {
         this.kafkaTemplate = storePayloadKafkaTemplate;
         this.topic = topic;
@@ -35,8 +35,8 @@ public class StoreEventProducerService {
      */
     public void publish(StoreRecord storeRecord) {
         try {
-            SendResult<String, JsonNode> result = kafkaTemplate
-                    .send(topic, storeRecord.getLocationId(), storeRecord.getPayload())
+            SendResult<String, StoreRecord> result = kafkaTemplate
+                    .send(topic, storeRecord.getLocationId(), storeRecord)
                     .get(PUBLISH_TIMEOUT_SECONDS, TimeUnit.SECONDS);
 
             log.debug("Published store event storeId={} to topic={} partition={} offset={}",

@@ -25,7 +25,7 @@ public final class StoreMapper {
 
     public static StoreEntity toEntity(StoreRecord record, StoreEntity existing) {
         StoreEntity entity = existing == null ? new StoreEntity() : existing;
-        JsonNode p = record.getPayload();
+        JsonNode p = record.getStoreInfo();
 
         entity.setLocationId(record.getLocationId());
         entity.setDepartments(joinDepartments(p.path("departments")));
@@ -67,7 +67,7 @@ public final class StoreMapper {
 
     public static StoreRecord toRecord(StoreEntity entity) {
         ObjectNode payload = JsonNodeFactory.instance.objectNode();
-        payload.put("locationId", entity.getLocationId());
+//        payload.put("locationId", entity.getLocationId());
 
         if (entity.getDepartments() != null && !entity.getDepartments().isBlank()) {
             ArrayNode arr = payload.putArray("departments");
@@ -142,9 +142,9 @@ public final class StoreMapper {
     }
 
     private static String encode(StoreRecord record) {
-        if (!record.getLocationId().equals(record.getPayload().path("locationId").asText(null)))
+        if (!record.getLocationId().equals(record.getStoreInfo().path("locationId").asText(null)))
             throw new IllegalArgumentException("Payload locationId must equal record locationId");
-        return record.getPayload().toString();
+        return record.getStoreInfo().toString();
     }
 
     private static String joinDepartments(JsonNode departments) {

@@ -10,6 +10,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -29,11 +30,8 @@ import static com.safeway.ossl.storepipeline.constants.OSSLServiceEndPoints.OSSL
 @Tag(name = "Store Import", description = "OSSL store CSV import and Kafka publishing")
 public class StoreImportController {
 
-    private final CsvStoreImportService csvStoreImportService;
-
-    public StoreImportController(CsvStoreImportService csvStoreImportService) {
-        this.csvStoreImportService = csvStoreImportService;
-    }
+    @Autowired
+    private CsvStoreImportService csvStoreImportService;
 
     @Operation(
             summary = "Import an OSSL store CSV file",

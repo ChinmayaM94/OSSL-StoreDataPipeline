@@ -18,6 +18,7 @@ import com.safeway.ossl.storepipeline.repository.StoreSqlRepository;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -32,13 +33,11 @@ import static com.safeway.ossl.storepipeline.constants.CsvStoreFields.REQUIRED_H
 @Service
 public class CsvStoreImportService {
 
-    private final StoreEventProducerService producer;
-    private final StoreSqlRepository sql;
+    @Autowired
+    private StoreEventProducerService producer;
 
-    public CsvStoreImportService(StoreEventProducerService producer, StoreSqlRepository sql) {
-        this.producer = producer;
-        this.sql = sql;
-    }
+    @Autowired
+    private StoreSqlRepository sql;
 
     public ImportResult importCsv(MultipartFile file) {
         validateFile(file);
@@ -75,7 +74,7 @@ public class CsvStoreImportService {
                         throw new RowIssue("locationId", "Duplicate locationId: " + id);
                     }
 
-                    StoreRecord record = new StoreRecord(id, payload, null);
+                    StoreRecord record = new StoreRecord(id, payload, 0L);
                     StoreEntity existing = sql.findById(id).orElse(null);
                     StoreEntity entity = StoreMapper.toEntity(record, existing);
                     sql.saveAndFlush(entity);
