@@ -1,23 +1,28 @@
 package com.safeway.ossl.storepipeline.document;
 
 import org.springframework.data.annotation.Id;
+import org.springframework.data.mongodb.core.index.Indexed;
 import org.springframework.data.mongodb.core.mapping.Document;
-import java.time.Instant;
+import lombok.Getter;
+import lombok.Setter;
 
-/** Mongo _id is always locationId; source _id is retained inside sourceJson, never used as the document key. */
+import java.time.Instant;
+import java.util.Map;
+
 @Document(collection = "stores")
+@Getter
+@Setter
 public class StoreDocument {
+
     @Id
+    private String id;
+
+    @Indexed(unique = true)
     private String locationId;
-    private String sourceJson;
+
+    private Map<String, Object> storeInfo;
+
     private Long version;
+
     private Instant lastUpdated;
-    public String getLocationId() { return locationId; }
-    public void setLocationId(String locationId) { this.locationId = locationId; }
-    public String getSourceJson() { return sourceJson; }
-    public void setSourceJson(String sourceJson) { this.sourceJson = sourceJson; }
-    public Long getVersion() { return version; }
-    public void setVersion(Long version) { this.version = version; }
-    public Instant getLastUpdated() { return lastUpdated; }
-    public void setLastUpdated(Instant lastUpdated) { this.lastUpdated = lastUpdated; }
 }

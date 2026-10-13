@@ -9,12 +9,10 @@ import com.fasterxml.jackson.databind.node.TextNode;
 import com.safeway.ossl.storepipeline.dto.ImportResult;
 import com.safeway.ossl.storepipeline.dto.RowError;
 import com.safeway.ossl.storepipeline.dto.StoreRecord;
-import com.safeway.ossl.storepipeline.entity.StoreEntity;
 import com.safeway.ossl.storepipeline.exception.CsvHeaderException;
 import com.safeway.ossl.storepipeline.exception.EmptyFileException;
 import com.safeway.ossl.storepipeline.exception.InvalidFileTypeException;
-import com.safeway.ossl.storepipeline.mapper.StoreMapper;
-import com.safeway.ossl.storepipeline.repository.StoreSqlRepository;
+import com.safeway.ossl.storepipeline.exception.KafkaPublishException;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
@@ -36,29 +34,35 @@ public class CsvStoreImportService {
     @Autowired
     private StoreEventProducerService producer;
 
-    @Autowired
-    private StoreSqlRepository sql;
-
     public ImportResult importCsv(MultipartFile file) {
         validateFile(file);
         List<RowError> errors = new ArrayList<>();
-        Set<String> seenLocationIds = new HashSet<>(); // NEW
+        Set<String> seenLocationIds = new HashSet<>();
         int rows = 0, processed = 0;
-        CSVFormat format = CSVFormat.DEFAULT.builder().setHeader().setSkipHeaderRecord(true)
-                .setIgnoreSurroundingSpaces(true).setTrim(true).setIgnoreEmptyLines(true).build();
+
+        CSVFormat format = CSVFormat.DEFAULT.builder()
+                .setHeader()
+                .setSkipHeaderRecord(true)
+                .setIgnoreSurroundingSpaces(true)
+                .setTrim(true)
+                .setIgnoreEmptyLines(true)
+                .build();
+
         try (CSVParser parser = format.parse(new InputStreamReader(file.getInputStream(), StandardCharsets.UTF_8))) {
             List<String> headers = parser.getHeaderNames();
             Set<String> missing = new LinkedHashSet<>(REQUIRED_HEADERS);
             missing.removeAll(headers);
-            if (!missing.isEmpty())
+            if (!missing.isEmpty()) {
                 throw new CsvHeaderException("CSV is missing required columns: " + missing + "; found: " + headers);
+            }
 
             for (CSVRecord row : parser) {
                 rows++;
                 int rowNumber = Math.toIntExact(row.getRecordNumber() + 1);
                 try {
-                    if (!row.isConsistent())
+                    if (!row.isConsistent()) {
                         throw new RowIssue("csv", "Expected " + headers.size() + " values, got " + row.size());
+                    }
 
                     ObjectNode payload = JsonNodeFactory.instance.objectNode();
                     for (String header : REQUIRED_HEADERS) {
@@ -67,25 +71,25 @@ public class CsvStoreImportService {
                     }
 
                     String id = payload.path("locationId").asText("");
-                    if (id.isBlank()) throw new RowIssue("locationId", "locationId is required");
+                    if (id.isBlank()) {
+                        throw new RowIssue("locationId", "locationId is required");
+                    }
 
-                    // NEW: reject duplicate locationId within this file; only the first occurrence is processed
                     if (!seenLocationIds.add(id)) {
                         throw new RowIssue("locationId", "Duplicate locationId: " + id);
                     }
 
+                    payload.remove("locationId");
                     StoreRecord record = new StoreRecord(id, payload, 0L);
-                    StoreEntity existing = sql.findById(id).orElse(null);
-                    StoreEntity entity = StoreMapper.toEntity(record, existing);
-                    sql.saveAndFlush(entity);
-                    // Confirm Kafka before counting success. A failed send leaves a SQL row for reconciliation.
+
                     producer.publish(record);
                     processed++;
                 } catch (RowIssue ex) {
                     errors.add(new RowError(rowNumber, ex.field, ex.getMessage()));
                 } catch (Exception ex) {
-                    String field = ex instanceof com.safeway.ossl.storepipeline.exception.KafkaPublishException ? "kafka" : "sql";
-                    errors.add(new RowError(rowNumber, field, ex.getMessage() == null ? ex.getClass().getSimpleName() : ex.getMessage()));
+                    String field = ex instanceof KafkaPublishException ? "kafka" : "csv";
+                    errors.add(new RowError(rowNumber, field,
+                            ex.getMessage() == null ? ex.getClass().getSimpleName() : ex.getMessage()));
                 }
             }
         } catch (CsvHeaderException ex) {
@@ -93,10 +97,10 @@ public class CsvStoreImportService {
         } catch (Exception ex) {
             throw new CsvHeaderException("Unable to read/parse CSV file: " + ex.getMessage());
         }
+
         return new ImportResult(rows, processed, errors.size(), errors);
     }
 
-    /** Minimal, non-validating conversion: booleans, departments list, lat/long numbers, everything else as text. */
     private static JsonNode convert(String header, String cell) {
         if (cell == null || cell.isEmpty()) return JsonNodeFactory.instance.nullNode();
         String lower = cell.toLowerCase();
@@ -145,7 +149,9 @@ public class CsvStoreImportService {
         for (int i = 0; i < parts.length - 1; i++) {
             JsonNode child = current.get(parts[i]);
             if (child == null) child = current.putObject(parts[i]);
-            if (!(child instanceof ObjectNode object)) throw new IllegalArgumentException("Conflict: " + path + " has a non-object parent");
+            if (!(child instanceof ObjectNode object)) {
+                throw new IllegalArgumentException("Conflict: " + path + " has a non-object parent");
+            }
             current = object;
         }
         current.set(parts[parts.length - 1], value);
@@ -153,6 +159,9 @@ public class CsvStoreImportService {
 
     private static final class RowIssue extends RuntimeException {
         private final String field;
-        private RowIssue(String field, String message) { super(message); this.field = field; }
+        private RowIssue(String field, String message) {
+            super(message);
+            this.field = field;
+        }
     }
 }

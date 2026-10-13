@@ -30,8 +30,7 @@ public class StoreEventProducerService {
     }
 
     /**
-     * Publishes just the store's payload JSON (no locationId/payload/version
-     * envelope) to the store-events topic, keyed by locationId.
+     * Publishes the store's payload JSON to the store-events topic, keyed by locationId.
      */
     public void publish(StoreRecord storeRecord) {
         try {

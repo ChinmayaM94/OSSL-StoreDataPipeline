@@ -12,6 +12,8 @@ import com.safeway.ossl.storepipeline.entity.StoreEntity;
 
 import java.time.Instant;
 import java.util.Arrays;
+import java.util.Map;
+import java.util.UUID;
 
 public final class StoreMapper {
 
@@ -67,7 +69,6 @@ public final class StoreMapper {
 
     public static StoreRecord toRecord(StoreEntity entity) {
         ObjectNode payload = JsonNodeFactory.instance.objectNode();
-//        payload.put("locationId", entity.getLocationId());
 
         if (entity.getDepartments() != null && !entity.getDepartments().isBlank()) {
             ArrayNode arr = payload.putArray("departments");
@@ -114,37 +115,40 @@ public final class StoreMapper {
     // ---------------------------------------------------------------
 
     public static StoreRecord toRecord(StoreDocument document) {
-        ObjectNode payload = parse(document.getSourceJson());
+        ObjectNode payload = mapToObjectNode(document.getStoreInfo());
         return new StoreRecord(document.getLocationId(), payload, document.getVersion());
     }
 
     public static StoreDocument toDocument(StoreRecord record) {
+        if (record.getLocationId() == null) {
+            throw new IllegalArgumentException("Record must contain a locationId");
+        }
+
         StoreDocument document = new StoreDocument();
+        document.setId(UUID.randomUUID().toString());
         document.setLocationId(record.getLocationId());
-        document.setSourceJson(encode(record));
+        document.setStoreInfo(objectNodeToMap(record.getStoreInfo()));
         document.setVersion(record.getVersion());
         document.setLastUpdated(Instant.now());
         return document;
     }
 
     // ---------------------------------------------------------------
-    // Helpers
+    // Helpers - ObjectNode <-> Map conversion for Mongo storage
     // ---------------------------------------------------------------
 
-    private static ObjectNode parse(String source) {
-        try {
-            JsonNode node = JSON.readTree(source);
-            if (node instanceof ObjectNode object) return object;
-            throw new IllegalArgumentException("sourceJson must be an object");
-        } catch (Exception ex) {
-            throw new IllegalArgumentException("Invalid persisted store JSON", ex);
+    private static Map<String, Object> objectNodeToMap(ObjectNode node) {
+        if (node == null) {
+            return Map.of();
         }
+        return JSON.convertValue(node, Map.class);
     }
 
-    private static String encode(StoreRecord record) {
-        if (!record.getLocationId().equals(record.getStoreInfo().path("locationId").asText(null)))
-            throw new IllegalArgumentException("Payload locationId must equal record locationId");
-        return record.getStoreInfo().toString();
+    private static ObjectNode mapToObjectNode(Map<String, Object> map) {
+        if (map == null) {
+            return JsonNodeFactory.instance.objectNode();
+        }
+        return JSON.convertValue(map, ObjectNode.class);
     }
 
     private static String joinDepartments(JsonNode departments) {

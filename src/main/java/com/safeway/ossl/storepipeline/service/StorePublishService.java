@@ -16,7 +16,7 @@ import java.util.Optional;
  * Orchestrates {@code POST /api/stores/{storeId}/publish}: reads the store
  * from the SQL datastore, assigns the next version, persists that version
  * back to SQL, and publishes the versioned record to Kafka Topic 1 via
- * {@link StorePublicationProducerService}.
+ * {@link StoreEventProducerService}.
  */
 @Service
 public class StorePublishService {
@@ -27,7 +27,7 @@ public class StorePublishService {
     private StoreSqlRepository sqlRepository;
 
     @Autowired
-    private StorePublicationProducerService publicationProducerService;
+    private StoreEventProducerService storeEventProducerService;
 
     public StoreRecord publish(String storeId) {
         StoreEntity dbRecord = sqlRepository.findById(storeId)
@@ -39,8 +39,8 @@ public class StorePublishService {
         StoreEntity saved = sqlRepository.save(dbRecord);
 
         StoreRecord record = StoreMapper.toRecord(saved);
-        publicationProducerService.publish(record);
-        log.info("Published storeId={} to store-publication topic at version={}", storeId, nextVersion);
+        storeEventProducerService.publish(record);
+        log.info("Published storeId={} to ossl-store-event topic at version={}", storeId, nextVersion);
 
         return record;
     }

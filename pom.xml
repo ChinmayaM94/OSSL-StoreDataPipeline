@@ -56,9 +56,16 @@
              external DB setup. Swap for a real driver (e.g. PostgreSQL, MySQL) in
              production by replacing this dependency and the spring.datasource.*
              properties in application.yml - no application code changes needed. -->
+<!--        <dependency>-->
+<!--            <groupId>com.h2database</groupId>-->
+<!--            <artifactId>h2</artifactId>-->
+<!--            <scope>runtime</scope>-->
+<!--        </dependency>-->
+
+        <!-- PostgreSQL database driver for production -->
         <dependency>
-            <groupId>com.h2database</groupId>
-            <artifactId>h2</artifactId>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
             <scope>runtime</scope>
         </dependency>
 

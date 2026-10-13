@@ -19,13 +19,16 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import static com.safeway.ossl.storepipeline.constants.OSSLServiceEndPoints.OSSL_SERVICE_API_PREFIX;
+import static com.safeway.ossl.storepipeline.constants.OSSLServiceEndPoints.SQL_KAFKA_PUBLICATION_URL;
+
 /**
  * REST endpoint that triggers publication of a store from the SQL datastore
  * to Kafka Topic 1 (ossl-store-publication). This is the entry point to the
  * downstream Mongo-sync + cache-refresh flow.
  */
 @RestController
-@RequestMapping("/api/stores")
+@RequestMapping(OSSL_SERVICE_API_PREFIX)
 @Tag(name = "Store Publication", description = "Publishes a versioned store record from SQL to Kafka, " +
         "triggering downstream MongoDB sync and cache refresh")
 public class StorePublishController {
@@ -52,7 +55,7 @@ public class StorePublishController {
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,
                             schema = @Schema(implementation = ErrorResponse.class)))
     })
-    @PostMapping(path = "/{storeId}/publish")
+    @PostMapping(path = SQL_KAFKA_PUBLICATION_URL)
     public ResponseEntity<StoreRecord> publish(
             @Parameter(description = "Store identifier to publish.", required = true)
             @PathVariable String storeId) {
