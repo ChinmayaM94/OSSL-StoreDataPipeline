@@ -10,6 +10,7 @@ import org.springframework.kafka.core.KafkaTemplate;
 import org.springframework.kafka.support.SendResult;
 import org.springframework.stereotype.Service;
 
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
@@ -27,6 +28,24 @@ public class StoreEventProducerService {
                                       @Value("${kafka.topic.store-events}") String topic) {
         this.kafkaTemplate = storePayloadKafkaTemplate;
         this.topic = topic;
+    }
+
+    /**
+     * Sends without waiting for the broker ack so callers can batch many sends and await them together.
+     * The future fails with {@link KafkaPublishException} if the send does not complete successfully.
+     */
+    public CompletableFuture<Void> publishAsync(StoreRecord storeRecord) {
+        String failure = "Failed to publish storeId=" + storeRecord.getLocationId() + " to topic " + topic;
+        try {
+            return kafkaTemplate.send(topic, storeRecord.getLocationId(), storeRecord)
+                    .orTimeout(PUBLISH_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                    .handle((result, ex) -> {
+                        if (ex != null) throw new KafkaPublishException(failure, ex);
+                        return (Void) null;
+                    });
+        } catch (RuntimeException e) {
+            return CompletableFuture.failedFuture(new KafkaPublishException(failure, e));
+        }
     }
 
     /**

@@ -9,6 +9,7 @@ import com.fasterxml.jackson.databind.node.TextNode;
 import com.safeway.ossl.storepipeline.dto.ImportResult;
 import com.safeway.ossl.storepipeline.dto.RowError;
 import com.safeway.ossl.storepipeline.dto.StoreRecord;
+import com.safeway.ossl.storepipeline.entity.StoreEntity;
 import com.safeway.ossl.storepipeline.exception.CsvHeaderException;
 import com.safeway.ossl.storepipeline.exception.EmptyFileException;
 import com.safeway.ossl.storepipeline.exception.InvalidFileTypeException;
@@ -26,6 +27,8 @@ import java.io.InputStreamReader;
 import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 
 import static com.safeway.ossl.storepipeline.constants.CsvStoreFields.REQUIRED_HEADERS;
 
@@ -42,7 +45,8 @@ public class CsvStoreImportService {
         validateFile(file);
         List<RowError> errors = new ArrayList<>();
         Set<String> seenLocationIds = new HashSet<>();
-        int rows = 0, processed = 0;
+        List<PendingRow> pending = new ArrayList<>();
+        int rows = 0;
 
         CSVFormat format = CSVFormat.DEFAULT.builder()
                 .setHeader()
@@ -84,10 +88,7 @@ public class CsvStoreImportService {
                     }
 
                     payload.remove("locationId");
-                    StoreRecord record = new StoreRecord(id, payload, nextVersion(id));
-
-                    producer.publish(record);
-                    processed++;
+                    pending.add(new PendingRow(rowNumber, id, payload));
                 } catch (RowIssue ex) {
                     errors.add(new RowError(rowNumber, ex.field, ex.getMessage()));
                 } catch (Exception ex) {
@@ -102,19 +103,45 @@ public class CsvStoreImportService {
             throw new CsvHeaderException("Unable to read/parse CSV file: " + ex.getMessage());
         }
 
+        int processed = publishAll(pending, errors);
+        errors.sort(Comparator.comparingInt(RowError::getRowNumber));
         return new ImportResult(rows, processed, errors.size(), errors);
     }
 
-    /**
-     * New stores start at version 0. A store already in SQL gets its current version + 1, so a
-     * re-import is accepted by the Mongo consumer (which only applies newer versions) and never
-     * moves the SQL version backwards.
-     */
-    private long nextVersion(String locationId) {
-        return sqlRepository.findById(locationId)
-                .map(entity -> entity.getVersion() == null ? 1L : entity.getVersion() + 1)
-                .orElse(0L);
+    /** Looks up versions in one query, fires every send, then waits for all acks together. */
+    private int publishAll(List<PendingRow> pending, List<RowError> errors) {
+        if (pending.isEmpty()) return 0;
+        Map<String, Long> currentVersions = new HashMap<>();
+        for (StoreEntity entity : sqlRepository.findAllById(pending.stream().map(PendingRow::id).toList())) {
+            currentVersions.put(entity.getLocationId(), entity.getVersion());
+        }
+
+        List<CompletableFuture<Void>> futures = new ArrayList<>(pending.size());
+        for (PendingRow row : pending) {
+            long version = 0L; // new store
+            if (currentVersions.containsKey(row.id())) {
+                Long current = currentVersions.get(row.id());
+                version = current == null ? 1L : current + 1;
+            }
+            futures.add(producer.publishAsync(new StoreRecord(row.id(), row.payload(), version)));
+        }
+
+        int processed = 0;
+        for (int i = 0; i < pending.size(); i++) {
+            try {
+                futures.get(i).join();
+                processed++;
+            } catch (Exception ex) {
+                Throwable cause = ex instanceof CompletionException && ex.getCause() != null ? ex.getCause() : ex;
+                String field = cause instanceof KafkaPublishException ? "kafka" : "csv";
+                errors.add(new RowError(pending.get(i).rowNumber(), field,
+                        cause.getMessage() == null ? cause.getClass().getSimpleName() : cause.getMessage()));
+            }
+        }
+        return processed;
     }
+
+    private record PendingRow(int rowNumber, String id, ObjectNode payload) {}
 
     private static JsonNode convert(String header, String cell) {
         if (cell == null || cell.isEmpty()) return JsonNodeFactory.instance.nullNode();

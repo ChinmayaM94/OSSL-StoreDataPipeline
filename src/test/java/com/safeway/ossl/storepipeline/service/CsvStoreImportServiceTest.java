@@ -16,13 +16,12 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 
 import static com.safeway.ossl.storepipeline.constants.CsvStoreFields.REQUIRED_HEADERS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -49,6 +48,8 @@ class CsvStoreImportServiceTest {
     void setUp() {
         producerService = Mockito.mock(StoreEventProducerService.class);
         sqlRepository = Mockito.mock(StoreSqlRepository.class);
+        when(producerService.publishAsync(any(StoreRecord.class)))
+                .thenReturn(CompletableFuture.completedFuture(null));
         csvStoreImportService = new CsvStoreImportService();
         ReflectionTestUtils.setField(csvStoreImportService, "producer", producerService);
         ReflectionTestUtils.setField(csvStoreImportService, "sqlRepository", sqlRepository);
@@ -67,19 +68,19 @@ class CsvStoreImportServiceTest {
         assertEquals(4, result.getFailureCount());
         assertEquals(4, result.getErrors().size());
 
-        verify(producerService, times(4)).publish(any(StoreRecord.class));
+        verify(producerService, times(4)).publishAsync(any(StoreRecord.class));
 
         ArgumentCaptor<StoreRecord> captor = ArgumentCaptor.forClass(StoreRecord.class);
-        verify(producerService, times(4)).publish(captor.capture());
+        verify(producerService, times(4)).publishAsync(captor.capture());
         List<String> publishedIds = captor.getAllValues().stream().map(StoreRecord::getLocationId).toList();
         assertTrue(publishedIds.containsAll(List.of("1001", "1002", "1003", "1008")));
     }
 
     @Test
     void kafkaPublishFailureOnOneRow_isCountedAsFailureAndOtherRowsStillPublish() throws IOException {
-        doThrow(new KafkaPublishException("simulated broker timeout"))
-                .when(producerService).publish(Mockito.argThat(
-                        sr -> sr != null && "1002".equals(sr.getLocationId())));
+        when(producerService.publishAsync(Mockito.argThat(
+                sr -> sr != null && "1002".equals(sr.getLocationId()))))
+                .thenReturn(CompletableFuture.failedFuture(new KafkaPublishException("simulated broker timeout")));
 
         MockMultipartFile file = new MockMultipartFile(
                 "file", "sample_stores.csv", "text/csv",
@@ -92,7 +93,7 @@ class CsvStoreImportServiceTest {
         assertEquals(5, result.getFailureCount());
         assertTrue(result.getErrors().stream().anyMatch(e -> "kafka".equals(e.getField())));
 
-        verify(producerService, times(4)).publish(any(StoreRecord.class));
+        verify(producerService, times(4)).publishAsync(any(StoreRecord.class));
     }
 
     @Test
@@ -100,7 +101,7 @@ class CsvStoreImportServiceTest {
         StoreEntity existing = new StoreEntity();
         existing.setLocationId("1001");
         existing.setVersion(3L);
-        when(sqlRepository.findById("1001")).thenReturn(Optional.of(existing));
+        when(sqlRepository.findAllById(any())).thenReturn(List.of(existing));
 
         MockMultipartFile file = new MockMultipartFile(
                 "file", "sample_stores.csv", "text/csv",
@@ -109,7 +110,7 @@ class CsvStoreImportServiceTest {
         csvStoreImportService.importCsv(file);
 
         ArgumentCaptor<StoreRecord> captor = ArgumentCaptor.forClass(StoreRecord.class);
-        verify(producerService, times(4)).publish(captor.capture());
+        verify(producerService, times(4)).publishAsync(captor.capture());
         for (StoreRecord published : captor.getAllValues()) {
             long expected = "1001".equals(published.getLocationId()) ? 4L : 0L;
             assertEquals(expected, published.getVersion(), "version for " + published.getLocationId());
