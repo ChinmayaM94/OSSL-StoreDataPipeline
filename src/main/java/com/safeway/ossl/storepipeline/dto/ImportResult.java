@@ -9,12 +9,6 @@ import lombok.NoArgsConstructor;
 import java.util.Collections;
 import java.util.List;
 
-/**
- * Response payload for {@code POST /api/stores/import}. Summarizes how many
- * data rows were in the file, how many were successfully published to Kafka,
- * how many failed, and the actionable detail behind every failure.
- */
-
 @Schema(description = "Summary + row-level detail of a CSV import operation")
 @Data
 @Builder

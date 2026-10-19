@@ -2,7 +2,9 @@ package com.safeway.ossl.storepipeline.service;
 
 import com.safeway.ossl.storepipeline.dto.ImportResult;
 import com.safeway.ossl.storepipeline.dto.StoreRecord;
+import com.safeway.ossl.storepipeline.entity.StoreEntity;
 import com.safeway.ossl.storepipeline.exception.KafkaPublishException;
+import com.safeway.ossl.storepipeline.repository.StoreSqlRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -14,12 +16,14 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 import static com.safeway.ossl.storepipeline.constants.CsvStoreFields.REQUIRED_HEADERS;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
@@ -38,13 +42,16 @@ class CsvStoreImportServiceTest {
     ) + "\n";
 
     private StoreEventProducerService producerService;
+    private StoreSqlRepository sqlRepository;
     private CsvStoreImportService csvStoreImportService;
 
     @BeforeEach
     void setUp() {
         producerService = Mockito.mock(StoreEventProducerService.class);
+        sqlRepository = Mockito.mock(StoreSqlRepository.class);
         csvStoreImportService = new CsvStoreImportService();
         ReflectionTestUtils.setField(csvStoreImportService, "producer", producerService);
+        ReflectionTestUtils.setField(csvStoreImportService, "sqlRepository", sqlRepository);
     }
 
     @Test
@@ -86,6 +93,27 @@ class CsvStoreImportServiceTest {
         assertTrue(result.getErrors().stream().anyMatch(e -> "kafka".equals(e.getField())));
 
         verify(producerService, times(4)).publish(any(StoreRecord.class));
+    }
+
+    @Test
+    void newStoreIsPublishedAtVersionZero_andExistingStoreAtCurrentVersionPlusOne() {
+        StoreEntity existing = new StoreEntity();
+        existing.setLocationId("1001");
+        existing.setVersion(3L);
+        when(sqlRepository.findById("1001")).thenReturn(Optional.of(existing));
+
+        MockMultipartFile file = new MockMultipartFile(
+                "file", "sample_stores.csv", "text/csv",
+                CSV_CONTENT.getBytes(StandardCharsets.UTF_8));
+
+        csvStoreImportService.importCsv(file);
+
+        ArgumentCaptor<StoreRecord> captor = ArgumentCaptor.forClass(StoreRecord.class);
+        verify(producerService, times(4)).publish(captor.capture());
+        for (StoreRecord published : captor.getAllValues()) {
+            long expected = "1001".equals(published.getLocationId()) ? 4L : 0L;
+            assertEquals(expected, published.getVersion(), "version for " + published.getLocationId());
+        }
     }
 
     private static String row(String locationId, String latitude, String longitude) {

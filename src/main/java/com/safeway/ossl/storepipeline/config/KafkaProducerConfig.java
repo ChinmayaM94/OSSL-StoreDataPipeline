@@ -21,8 +21,8 @@ public class KafkaProducerConfig {
     @Value("${spring.kafka.bootstrap-servers}")
     private String bootstrapServers;
 
-    /** Used for Topic 1 (store-publication), whose consumer needs the
-     * {locationId, payload, version} envelope for version-based idempotency. */
+    /** Used for the store-events topic and the DLQ recoverer: publishes the
+     * {locationId, storeInfo, version} envelope needed for version-based idempotency. */
     @Bean
     public ProducerFactory<String, StoreRecord> storeRecordProducerFactory() {
         Map<String, Object> configProps = new HashMap<>();
@@ -55,5 +55,16 @@ public class KafkaProducerConfig {
     @Bean
     public KafkaTemplate<String, JsonNode> storePayloadKafkaTemplate() {
         return new KafkaTemplate<>(storePayloadProducerFactory());
+    }
+
+    /** Used by the DLQ replay: republishes the dead-lettered JSON text unchanged. */
+    @Bean
+    public KafkaTemplate<String, String> dlqReplayKafkaTemplate() {
+        Map<String, Object> configProps = new HashMap<>();
+        configProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+        configProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
+        configProps.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
+        configProps.put(ProducerConfig.ACKS_CONFIG, "all");
+        return new KafkaTemplate<>(new DefaultKafkaProducerFactory<String, String>(configProps));
     }
 }

@@ -94,5 +94,6 @@ class StoreEventConsumerServiceTest {
         consumerService.consume(record);
 
         verify(storeSqlRepository, times(2)).save(any(StoreEntity.class));
+        assertEquals(3L, existing.getVersion(), "a lower incoming version must not move the SQL version backwards");
     }
 }

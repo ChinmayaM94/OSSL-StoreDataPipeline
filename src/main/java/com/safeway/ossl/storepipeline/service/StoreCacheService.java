@@ -10,18 +10,6 @@ import org.springframework.stereotype.Service;
 
 import java.util.Optional;
 
-/**
- * Cache-aside access to store records, backed by a Caffeine {@link Cache}
- * (see {@link com.safeway.ossl.storepipeline.config.CacheConfig}) in front of
- * MongoDB.
- * <p>
- * Strategy: on a cache miss, {@link #get(String)} loads from MongoDB and
- * populates the cache (lazy reload); {@link #evict(String)} is called by
- * {@link com.safeway.ossl.storepipeline.listener.ChangeEventConsumer} after
- * a store changes downstream so the next read is forced to reload fresh data
- * rather than serving stale content — simpler than eagerly re-populating the
- * cache from within the Kafka listener, and documented as such.
- */
 @Service
 public class StoreCacheService {
 

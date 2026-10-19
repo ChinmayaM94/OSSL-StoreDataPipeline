@@ -54,7 +54,7 @@ public class StoreQueryController {
     }
 
     @Operation(summary = "Get a store from MongoDB",
-            description = "Reads the store directly from MongoDB (the datastore synced by the Kafka store-publication consumer).")
+            description = "Reads the store directly from MongoDB (the datastore synced by the Kafka store-events consumer).")
     @ApiResponses(value = {
             @ApiResponse(responseCode = "200", description = "Store found.",
                     content = @Content(mediaType = MediaType.APPLICATION_JSON_VALUE,

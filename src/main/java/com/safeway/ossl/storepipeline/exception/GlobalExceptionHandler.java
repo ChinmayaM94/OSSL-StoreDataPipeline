@@ -2,7 +2,9 @@ package com.safeway.ossl.storepipeline.exception;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.http.HttpStatus;
+import org.springframework.transaction.CannotCreateTransactionException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -66,6 +68,26 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Map<String, Object>> handleMultipart(MultipartException ex) {
         log.warn("Malformed multipart request: {}", ex.getMessage());
         return build(HttpStatus.BAD_REQUEST, "Malformed multipart request: " + ex.getMessage());
+    }
+
+    /**
+     * A backing data store (MongoDB / PostgreSQL) cannot be reached. Reported as 503 with a short
+     * message instead of leaking the driver's connection details; the full exception is logged.
+     */
+    @ExceptionHandler({DataAccessResourceFailureException.class, CannotCreateTransactionException.class})
+    public ResponseEntity<Map<String, Object>> handleDataStoreUnavailable(Exception ex) {
+        log.error("Data store unavailable", ex);
+        return build(HttpStatus.SERVICE_UNAVAILABLE, describeUnavailableStore(ex) + " is currently unavailable. Please try again shortly.");
+    }
+
+    private static String describeUnavailableStore(Throwable ex) {
+        for (Throwable t = ex; t != null; t = t.getCause()) {
+            String name = t.getClass().getName();
+            if (name.startsWith("com.mongodb")) return "MongoDB";
+            if (name.startsWith("org.postgresql") || name.startsWith("org.hibernate")
+                    || name.startsWith("java.sql") || name.startsWith("com.zaxxer")) return "The SQL database";
+        }
+        return "A data store";
     }
 
     @ExceptionHandler(Exception.class)

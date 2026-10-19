@@ -24,7 +24,7 @@ import static com.safeway.ossl.storepipeline.constants.OSSLServiceEndPoints.SQL_
 
 /**
  * REST endpoint that triggers publication of a store from the SQL datastore
- * to Kafka Topic 1 (ossl-store-publication). This is the entry point to the
+ * to the Kafka topic ossl-store-events. This is the entry point to the
  * downstream Mongo-sync + cache-refresh flow.
  */
 @RestController
@@ -40,7 +40,7 @@ public class StorePublishController {
             summary = "Publish a store to Kafka",
             description = "Reads the store identified by storeId from the SQL datastore, assigns it the " +
                     "next version number, persists the new version back to SQL, and publishes the versioned " +
-                    "record to the 'ossl-store-publication' Kafka topic. A downstream consumer then upserts " +
+                    "record to the 'ossl-store-events' Kafka topic. A downstream consumer then upserts " +
                     "the record into MongoDB (only if the incoming version is newer than what's stored) and " +
                     "publishes a change event that evicts the cache entry for this store."
     )

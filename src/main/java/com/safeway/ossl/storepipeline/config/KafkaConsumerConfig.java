@@ -16,18 +16,10 @@ import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 import org.springframework.kafka.listener.DefaultErrorHandler;
 import org.springframework.kafka.support.serializer.ErrorHandlingDeserializer;
 import org.springframework.kafka.support.serializer.JsonDeserializer;
-import org.springframework.util.backoff.FixedBackOff;
 
 import java.util.HashMap;
 import java.util.Map;
 
-/**
- * Kafka consumer configuration for the two downstream listeners:
- * {@link StoreEventConsumer}
- * (Topic 1: {@code ossl-store-publication}) and
- * {@link com.safeway.ossl.storepipeline.listener.ChangeEventConsumer}
- * (Topic 2: {@code ossl-store-change-events}).
- */
 @Configuration
 public class KafkaConsumerConfig {
 
@@ -59,11 +51,12 @@ public class KafkaConsumerConfig {
     }
 
     @Bean
-    public ConcurrentKafkaListenerContainerFactory<String, StoreRecord> storeRecordKafkaListenerContainerFactory() {
+    public ConcurrentKafkaListenerContainerFactory<String, StoreRecord> storeRecordKafkaListenerContainerFactory(
+            DefaultErrorHandler kafkaErrorHandler) {
         ConcurrentKafkaListenerContainerFactory<String, StoreRecord> factory =
                 new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(storeRecordConsumerFactory());
-        factory.setCommonErrorHandler(defaultErrorHandler());
+        factory.setCommonErrorHandler(kafkaErrorHandler);
         return factory;
     }
 
@@ -76,21 +69,24 @@ public class KafkaConsumerConfig {
     }
 
     @Bean
-    public ConcurrentKafkaListenerContainerFactory<String, StoreChangeEvent> storeChangeEventKafkaListenerContainerFactory() {
+    public ConcurrentKafkaListenerContainerFactory<String, StoreChangeEvent> storeChangeEventKafkaListenerContainerFactory(
+            DefaultErrorHandler kafkaErrorHandler) {
         ConcurrentKafkaListenerContainerFactory<String, StoreChangeEvent> factory =
                 new ConcurrentKafkaListenerContainerFactory<>();
         factory.setConsumerFactory(storeChangeEventConsumerFactory());
-        factory.setCommonErrorHandler(defaultErrorHandler());
+        factory.setCommonErrorHandler(kafkaErrorHandler);
         return factory;
     }
 
-    private DefaultErrorHandler defaultErrorHandler() {
-        // Retry twice with a 1s backoff, then log-and-skip rather than redeliver forever.
-        DefaultErrorHandler handler = new DefaultErrorHandler(
-                (record, exception) -> log.error(
-                        "Skipping unprocessable Kafka message after retries exhausted. topic={} partition={} offset={}",
-                        record.topic(), record.partition(), record.offset(), exception),
-                new FixedBackOff(1000L, 2L));
-        return handler;
+    /** Used by the DLQ replay: reads dead-lettered records as raw text, commits only after a successful replay. */
+    @Bean
+    public ConsumerFactory<String, String> dlqReplayConsumerFactory() {
+        Map<String, Object> props = new HashMap<>();
+        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
+        props.put(ConsumerConfig.GROUP_ID_CONFIG, groupId + "-dlq-replay");
+        props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
+        props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
+        props.put(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, 100);
+        return new DefaultKafkaConsumerFactory<>(props, new StringDeserializer(), new StringDeserializer());
     }
 }

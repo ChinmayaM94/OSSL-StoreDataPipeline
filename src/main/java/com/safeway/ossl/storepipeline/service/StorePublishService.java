@@ -12,12 +12,6 @@ import org.springframework.stereotype.Service;
 
 import java.util.Optional;
 
-/**
- * Orchestrates {@code POST /api/stores/{storeId}/publish}: reads the store
- * from the SQL datastore, assigns the next version, persists that version
- * back to SQL, and publishes the versioned record to Kafka Topic 1 via
- * {@link StoreEventProducerService}.
- */
 @Service
 public class StorePublishService {
 

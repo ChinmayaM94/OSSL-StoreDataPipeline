@@ -1,21 +1,38 @@
-# Local dev backing services for ossl-store-pipeline. H2 (SQL) is in-memory
-# and needs no container - only Kafka + MongoDB are provided here.
+# Local dev backing services for ossl-store-pipeline: PostgreSQL, Kafka and MongoDB.
 #
 # Usage:
-#   docker compose up -d        # start both services in the background
+#   docker compose up -d        # start all services in the background
 #   docker compose ps           # check status
 #   docker compose logs -f      # tail logs
 #   docker compose down         # stop + remove containers (keeps volumes)
 #   docker compose down -v      # stop + remove containers AND volumes (wipe data)
 #
-# The app's application.yml already defaults to these exact hosts/ports
-# (localhost:9092 for Kafka), so no KAFKA_BOOTSTRAP_SERVERS override is
-# needed once this is up. NOTE: application.yml's spring.data.mongodb.uri
-# currently points at a remote Azure Cosmos DB - override MONGODB_URI (or
-# edit application.yml) to mongodb://localhost:27017/ossldb to use this
-# local Mongo container instead.
+# application.yml defaults already match these services, so no env overrides
+# are needed: PostgreSQL localhost:5432 (db ossldb, user cmoo385 / postgres),
+# Kafka localhost:9092, MongoDB localhost:27017/ossldb. The STORES and
+# STORE_ADDRESS tables are created from create_tables.sql on the first start
+# of an empty postgres volume (use `down -v` to re-run it).
 
 services:
+  postgres:
+    image: postgres:15
+    container_name: ossl-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: ossldb
+      POSTGRES_USER: cmoo385
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - ossl-postgres-data:/var/lib/postgresql/data
+      - ./create_tables.sql:/docker-entrypoint-initdb.d/create_tables.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cmoo385 -d ossldb"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
   kafka:
     image: apache/kafka:3.7.0
     container_name: ossl-kafka
@@ -57,3 +74,4 @@ services:
 
 volumes:
   ossl-mongo-data:
+  ossl-postgres-data:

@@ -41,7 +41,6 @@ spring:
 kafka:
   topic:
     store-events: ${STORE_EVENTS_TOPIC:ossl-store-events}
-    store-publication: ${STORE_PUBLICATION_TOPIC:ossl-store-publication}
     change-events: ${CHANGE_EVENTS_TOPIC:ossl-store-change-events}
   consumer:
     group-id: ${KAFKA_CONSUMER_GROUP_ID:ossl-store-pipeline-group}

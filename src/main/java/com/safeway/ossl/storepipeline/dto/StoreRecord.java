@@ -8,7 +8,6 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Builder;
 import lombok.Data;
 
-/** The source store profile is retained in full; version is pipeline metadata, not a CSV field. */
 @Data
 @Schema(description = "Versioned store profile. storeInfo contains source JSON keyed by locationId, including nested ecomStore, address, hours, departmentsDetail and any extensions.")
 public class StoreRecord {

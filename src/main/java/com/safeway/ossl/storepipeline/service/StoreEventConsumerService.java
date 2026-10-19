@@ -17,7 +17,7 @@ public class StoreEventConsumerService {
 
     private static final Logger log = LoggerFactory.getLogger(StoreEventConsumerService.class);
 
-    private static final long LOG_EVERY_N_RECORDS = 50;
+    private static final long LOG_EVERY_N_RECORDS = 100;
 
     private final StoreSqlRepository storeSqlRepository;
     private final AtomicLong processedCount = new AtomicLong(0);

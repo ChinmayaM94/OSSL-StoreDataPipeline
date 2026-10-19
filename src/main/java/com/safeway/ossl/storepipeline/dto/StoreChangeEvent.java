@@ -8,18 +8,6 @@ import lombok.NoArgsConstructor;
 
 import java.time.Instant;
 
-/**
- * Lightweight "store changed" event published to the
- * {@code ossl-store-change-events} Kafka topic (Topic 2) by
- * {@link StoreEventConsumer}
- * after it successfully upserts a store into MongoDB. Consumed by
- * {@link com.safeway.ossl.storepipeline.listener.ChangeEventConsumer} to
- * evict the stale Caffeine cache entry for that store.
- * <p>
- * Deliberately NOT the full store payload — just enough to identify what
- * changed and at what version, keeping the cache-refresh signal small and
- * the two Kafka topics' responsibilities clearly separated per the LLD.
- */
 @Data
 @NoArgsConstructor
 @AllArgsConstructor

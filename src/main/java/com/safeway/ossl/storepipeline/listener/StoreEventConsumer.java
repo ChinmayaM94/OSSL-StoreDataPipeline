@@ -9,30 +9,28 @@ import com.safeway.ossl.storepipeline.service.ChangeEventProducerService;
 import com.safeway.ossl.storepipeline.service.StoreCacheService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
 import java.util.Optional;
 
-/**
- * Consumes Kafka Topic 1 ({@code ossl-store-events}) and upserts the
- * received {@link StoreRecord} into MongoDB.
- */
 @Component
 public class StoreEventConsumer {
 
     private static final Logger log = LoggerFactory.getLogger(StoreEventConsumer.class);
 
-    @Autowired
-    private StoreMongoRepository mongoRepository;
+    private final StoreMongoRepository mongoRepository;
+    private final ChangeEventProducerService changeEventProducerService;
+    private final StoreCacheService cacheService;
 
-    @Autowired
-    private ChangeEventProducerService changeEventProducerService;
-
-    @Autowired
-    private StoreCacheService cacheService;
+    public StoreEventConsumer(StoreMongoRepository mongoRepository,
+                              ChangeEventProducerService changeEventProducerService,
+                              StoreCacheService cacheService) {
+        this.mongoRepository = mongoRepository;
+        this.changeEventProducerService = changeEventProducerService;
+        this.cacheService = cacheService;
+    }
 
     @KafkaListener(
             topics = "${kafka.topic.store-events}",
@@ -44,22 +42,24 @@ public class StoreEventConsumer {
             return;
         }
 
-        try {
-            long incomingVersion = record.getVersion() == null ? 0L : record.getVersion();
+        long incomingVersion = record.getVersion() == null ? 0L : record.getVersion();
+
         Optional<StoreDocument> existing = mongoRepository.findByLocationId(record.getLocationId());
 
-            boolean shouldApply = existing.isEmpty()
-                    || existing.get().getVersion() == null
-                    || incomingVersion > existing.get().getVersion();
+        boolean shouldApply = existing.isEmpty()
+                || existing.get().getVersion() == null
+                || incomingVersion > existing.get().getVersion();
 
-            if (!shouldApply) {
-                log.info("Skipping out-of-order/duplicate store event for storeId={} incomingVersion={} storedVersion={}",
-                        record.getLocationId(), incomingVersion, existing.get().getVersion());
-                return;
-            }
+        if (!shouldApply) {
+            log.info("Skipping out-of-order/duplicate store event for storeId={} incomingVersion={} storedVersion={}",
+                    record.getLocationId(), incomingVersion, existing.get().getVersion());
+            return;
+        }
 
+        try {
             StoreDocument document = StoreMapper.toDocument(record);
-            existing.ifPresent(found -> document.setId(found.getId())); // Preserve MongoDB _id if updating
+            existing.ifPresent(found -> document.setId(found.getId()));
+
             mongoRepository.save(document);
             cacheService.put(record.getLocationId(), record);
 
@@ -71,6 +71,7 @@ public class StoreEventConsumer {
         } catch (Exception e) {
             log.error("Failed to process store event message for storeId={}: {}",
                     record.getLocationId(), e.getMessage(), e);
+            throw e;
         }
     }
 }

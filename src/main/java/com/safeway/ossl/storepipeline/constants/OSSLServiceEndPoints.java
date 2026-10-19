@@ -12,4 +12,5 @@ public class OSSLServiceEndPoints {
     public static final String GET_MONGO_DATA_URL = "/{storeId}/mongo";
     public static final String GET_CACHED_DATA_URL = "/{storeId}/cache";
     public static final String COMPARISON_URL = "/{storeId}/compare";
+    public static final String DLQ_REPLAY_URL = "/dlq/replay";
 }

@@ -51,8 +51,11 @@ public final class StoreMapper {
 
         entity.setAddress(toAddressEntity(p.path("address"), entity));
 
-        if (record.getVersion() != null) entity.setVersion(record.getVersion());
-        else if (entity.getVersion() == null) entity.setVersion(0L);
+        // Never move the stored version backwards (replayed / out-of-order messages).
+        Long current = entity.getVersion();
+        Long incoming = record.getVersion();
+        if (incoming != null) entity.setVersion(current == null ? incoming : Math.max(current, incoming));
+        else if (current == null) entity.setVersion(0L);
         return entity;
     }
 

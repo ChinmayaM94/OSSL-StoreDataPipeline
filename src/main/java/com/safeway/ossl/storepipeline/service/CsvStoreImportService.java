@@ -13,6 +13,7 @@ import com.safeway.ossl.storepipeline.exception.CsvHeaderException;
 import com.safeway.ossl.storepipeline.exception.EmptyFileException;
 import com.safeway.ossl.storepipeline.exception.InvalidFileTypeException;
 import com.safeway.ossl.storepipeline.exception.KafkaPublishException;
+import com.safeway.ossl.storepipeline.repository.StoreSqlRepository;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
@@ -33,6 +34,9 @@ public class CsvStoreImportService {
 
     @Autowired
     private StoreEventProducerService producer;
+
+    @Autowired
+    private StoreSqlRepository sqlRepository;
 
     public ImportResult importCsv(MultipartFile file) {
         validateFile(file);
@@ -80,7 +84,7 @@ public class CsvStoreImportService {
                     }
 
                     payload.remove("locationId");
-                    StoreRecord record = new StoreRecord(id, payload, 0L);
+                    StoreRecord record = new StoreRecord(id, payload, nextVersion(id));
 
                     producer.publish(record);
                     processed++;
@@ -99,6 +103,17 @@ public class CsvStoreImportService {
         }
 
         return new ImportResult(rows, processed, errors.size(), errors);
+    }
+
+    /**
+     * New stores start at version 0. A store already in SQL gets its current version + 1, so a
+     * re-import is accepted by the Mongo consumer (which only applies newer versions) and never
+     * moves the SQL version backwards.
+     */
+    private long nextVersion(String locationId) {
+        return sqlRepository.findById(locationId)
+                .map(entity -> entity.getVersion() == null ? 1L : entity.getVersion() + 1)
+                .orElse(0L);
     }
 
     private static JsonNode convert(String header, String cell) {
