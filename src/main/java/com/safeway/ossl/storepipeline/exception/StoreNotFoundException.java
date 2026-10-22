@@ -10,4 +10,9 @@ public class StoreNotFoundException extends RuntimeException {
     public StoreNotFoundException(String message) {
         super(message);
     }
+
+    /** Builds the standard "Store 'id' was not found in source." message. */
+    public static StoreNotFoundException forStore(String storeId, String source) {
+        return new StoreNotFoundException("Store '" + storeId + "' was not found in " + source + ".");
+    }
 }

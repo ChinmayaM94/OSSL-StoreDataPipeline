@@ -35,15 +35,12 @@ public class StoreCacheService {
         }
 
         log.info("Cache miss for storeId={}, loading from MongoDB", storeId);
-        return mongoRepository.findByLocationId(storeId).map(doc -> {
-            StoreRecord record = StoreMapper.toRecord(doc);
-            cache.put(storeId, record);
-            return record;
-        });
+        return loadAndCache(storeId);
     }
 
     public void put(String storeId, StoreRecord record) {
         cache.put(storeId, record);
+        log.debug("Cached storeId={} version={}", storeId, record.getVersion());
     }
 
     public void evict(String storeId) {
@@ -52,10 +49,18 @@ public class StoreCacheService {
     }
 
     public void refreshFromMongo(String storeId) {
-        mongoRepository.findByLocationId(storeId).ifPresent(doc -> {
+        loadAndCache(storeId).ifPresent(r -> log.debug("Refreshed cache entry for storeId={} from MongoDB", storeId));
+    }
+
+    private Optional<StoreRecord> loadAndCache(String storeId) {
+        Optional<StoreRecord> loaded = mongoRepository.findByLocationId(storeId).map(doc -> {
             StoreRecord record = StoreMapper.toRecord(doc);
             cache.put(storeId, record);
-            log.debug("Refreshed cache entry for storeId={} from MongoDB", storeId);
+            return record;
         });
+        if (loaded.isEmpty()) {
+            log.warn("storeId={} not found in MongoDB; nothing cached", storeId);
+        }
+        return loaded;
     }
 }

@@ -5,6 +5,7 @@ import com.safeway.ossl.storepipeline.dto.StoreRecord;
 import com.safeway.ossl.storepipeline.entity.StoreEntity;
 import com.safeway.ossl.storepipeline.exception.KafkaPublishException;
 import com.safeway.ossl.storepipeline.repository.StoreSqlRepository;
+import com.safeway.ossl.storepipeline.utility.StoreBatchPublishUtility;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
@@ -51,8 +52,8 @@ class CsvStoreImportServiceTest {
         when(producerService.publishAsync(any(StoreRecord.class)))
                 .thenReturn(CompletableFuture.completedFuture(null));
         csvStoreImportService = new CsvStoreImportService();
-        ReflectionTestUtils.setField(csvStoreImportService, "producer", producerService);
-        ReflectionTestUtils.setField(csvStoreImportService, "sqlRepository", sqlRepository);
+        ReflectionTestUtils.setField(csvStoreImportService, "batchPublisher",
+                new StoreBatchPublishUtility(producerService, sqlRepository));
     }
 
     @Test

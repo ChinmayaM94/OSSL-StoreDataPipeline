@@ -55,6 +55,16 @@ springdoc:
   api-docs:
     path: /v3/api-docs
 
+# Spring Boot Actuator
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: when-authorized
+
 logging:
   level:
     com.safeway.ossl.storepipeline: INFO

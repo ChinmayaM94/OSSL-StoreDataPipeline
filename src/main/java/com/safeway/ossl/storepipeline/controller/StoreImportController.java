@@ -1,8 +1,12 @@
 package com.safeway.ossl.storepipeline.controller;
 
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import com.safeway.ossl.storepipeline.dto.ErrorResponse;
 import com.safeway.ossl.storepipeline.dto.ImportResult;
 import com.safeway.ossl.storepipeline.service.CsvStoreImportService;
+import com.safeway.ossl.storepipeline.validation.ValidCsvFile;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -10,6 +14,7 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -29,6 +34,8 @@ import static com.safeway.ossl.storepipeline.constants.OSSLServiceEndPoints.OSSL
 @RequestMapping(OSSL_SERVICE_API_PREFIX)
 @Tag(name = "Store Import", description = "OSSL store CSV import and Kafka publishing")
 public class StoreImportController {
+
+    private static final Logger log = LoggerFactory.getLogger(StoreImportController.class);
 
     @Autowired
     private CsvStoreImportService csvStoreImportService;
@@ -54,9 +61,12 @@ public class StoreImportController {
     public ResponseEntity<ImportResult> importStores(
             @Parameter(description = "CSV file containing OSSL store records",
                     required = true, content = @Content(mediaType = MediaType.MULTIPART_FORM_DATA_VALUE))
-            @RequestParam("file") MultipartFile file) {
+            @RequestParam("file") @Valid @ValidCsvFile MultipartFile file) {
 
+        log.info("CSV import request received: filename={} size={} bytes", file.getOriginalFilename(), file.getSize());
         ImportResult result = csvStoreImportService.importCsv(file);
+        log.info("CSV import request completed: filename={} processed={} failed={}",
+                file.getOriginalFilename(), result.getProcessedCount(), result.getFailureCount());
         return ResponseEntity.ok(result);
     }
 }

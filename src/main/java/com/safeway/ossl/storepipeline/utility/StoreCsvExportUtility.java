@@ -9,9 +9,12 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVPrinter;
+import org.springframework.data.mongodb.core.geo.GeoJsonPoint;
 import org.springframework.stereotype.Component;
 
 import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
@@ -35,10 +38,10 @@ public class StoreCsvExportUtility {
         log.info("Fetched {} stores from grocerystores collection", stores.size());
 
         Path outputPath = Paths.get(System.getProperty("user.dir"), "sample-data", fileName);
-        java.nio.file.Files.createDirectories(outputPath.getParent());
+        Files.createDirectories(outputPath.getParent());
 
         try (CSVPrinter printer = new CSVPrinter(
-                java.nio.file.Files.newBufferedWriter(outputPath, java.nio.charset.StandardCharsets.UTF_8),
+                Files.newBufferedWriter(outputPath, StandardCharsets.UTF_8),
                 CSVFormat.DEFAULT.builder().setHeader(HEADERS.toArray(new String[0])).build())) {
 
             for (GroceryStoreDocument store : stores) {
@@ -67,7 +70,7 @@ public class StoreCsvExportUtility {
         if (direct != null) return direct.toString();
 
         if (store.getAddress() != null) {
-            org.springframework.data.mongodb.core.geo.GeoJsonPoint point = store.getAddress().getDisplayCoordinates();
+            GeoJsonPoint point = store.getAddress().getDisplayCoordinates();
             if (point == null) point = store.getAddress().getRoutableCoordinates();
             if (point != null) {
                 return String.valueOf(wantLatitude ? point.getY() : point.getX());

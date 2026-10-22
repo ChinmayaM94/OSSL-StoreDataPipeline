@@ -2,11 +2,13 @@ package com.safeway.ossl.storepipeline.exception;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.MessageSourceResolvable;
 import org.springframework.dao.DataAccessResourceFailureException;
 import org.springframework.http.HttpStatus;
 import org.springframework.transaction.CannotCreateTransactionException;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
+import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.multipart.MultipartException;
@@ -16,6 +18,8 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 /**
  * Handles request-level failures only (bad/missing/oversized file, wrong
@@ -38,6 +42,16 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Map<String, Object>> handleInvalidFileType(InvalidFileTypeException ex) {
         log.warn("Invalid file type uploaded: {}", ex.getMessage());
         return build(HttpStatus.BAD_REQUEST, ex.getMessage());
+    }
+
+    @ExceptionHandler(HandlerMethodValidationException.class)
+    public ResponseEntity<Map<String, Object>> handleMethodValidation(HandlerMethodValidationException ex) {
+        String message = ex.getAllErrors().stream()
+                .map(MessageSourceResolvable::getDefaultMessage)
+                .filter(Objects::nonNull)
+                .collect(Collectors.joining("; "));
+        log.warn("Request validation failed: {}", message);
+        return build(HttpStatus.BAD_REQUEST, message.isEmpty() ? "Request validation failed." : message);
     }
 
     @ExceptionHandler(CsvHeaderException.class)

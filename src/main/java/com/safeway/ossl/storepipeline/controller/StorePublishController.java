@@ -1,5 +1,8 @@
 package com.safeway.ossl.storepipeline.controller;
 
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import com.safeway.ossl.storepipeline.dto.ErrorResponse;
 import com.safeway.ossl.storepipeline.dto.StoreRecord;
 import com.safeway.ossl.storepipeline.exception.StoreNotFoundException;
@@ -33,6 +36,8 @@ import static com.safeway.ossl.storepipeline.constants.OSSLServiceEndPoints.SQL_
         "triggering downstream MongoDB sync and cache refresh")
 public class StorePublishController {
 
+    private static final Logger log = LoggerFactory.getLogger(StorePublishController.class);
+
     @Autowired
     private StorePublishService storePublishService;
 
@@ -60,6 +65,7 @@ public class StorePublishController {
             @Parameter(description = "Store identifier to publish.", required = true)
             @PathVariable String storeId) {
 
+        log.info("Publish request received for storeId={}", storeId);
         return ResponseEntity.ok(storePublishService.publish(storeId));
     }
 }

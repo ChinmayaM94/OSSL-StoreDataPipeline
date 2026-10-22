@@ -1,5 +1,8 @@
 package com.safeway.ossl.storepipeline.controller;
 
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import com.safeway.ossl.storepipeline.service.DlqReplayService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -23,6 +26,8 @@ import static com.safeway.ossl.storepipeline.constants.OSSLServiceEndPoints.OSSL
 @Tag(name = "Store DLQ", description = "Replay dead-lettered store events")
 public class StoreDlqController {
 
+    private static final Logger log = LoggerFactory.getLogger(StoreDlqController.class);
+
     @Autowired
     private DlqReplayService dlqReplayService;
 
@@ -35,7 +40,9 @@ public class StoreDlqController {
     )
     @PostMapping(DLQ_REPLAY_URL)
     public ResponseEntity<Map<String, Object>> replay() {
+        log.info("DLQ replay request received for topic={}", dlqReplayService.getDlqTopic());
         int replayed = dlqReplayService.replay();
+        log.info("DLQ replay request completed: replayed={}", replayed);
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("dlqTopic", dlqReplayService.getDlqTopic());
         body.put("replayed", replayed);

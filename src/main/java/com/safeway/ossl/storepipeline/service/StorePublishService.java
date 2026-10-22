@@ -24,11 +24,12 @@ public class StorePublishService {
     private StoreEventProducerService storeEventProducerService;
 
     public StoreRecord publish(String storeId) {
+        log.info("Publishing storeId={} from SQL to Kafka", storeId);
         StoreEntity dbRecord = sqlRepository.findById(storeId)
-                .orElseThrow(() -> new StoreNotFoundException(
-                        "Store '" + storeId + "' was not found in the SQL database."));
+                .orElseThrow(() -> StoreNotFoundException.forStore(storeId, "the SQL database"));
 
         long nextVersion = (dbRecord.getVersion() == null ? 0L : dbRecord.getVersion()) + 1;
+        log.debug("Bumping storeId={} from version={} to version={}", storeId, dbRecord.getVersion(), nextVersion);
         dbRecord.setVersion(nextVersion);
         StoreEntity saved = sqlRepository.save(dbRecord);
 

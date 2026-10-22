@@ -1,6 +1,8 @@
 package com.safeway.ossl.storepipeline.service;
 
 import com.safeway.ossl.storepipeline.exception.KafkaPublishException;
+import com.safeway.ossl.storepipeline.utility.KafkaPublishUtility;
+import lombok.Getter;
 import org.apache.kafka.clients.consumer.Consumer;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecords;
@@ -19,9 +21,6 @@ import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ExecutionException;
-import java.util.concurrent.TimeUnit;
-import java.util.concurrent.TimeoutException;
 
 /**
  * Replays dead-lettered store events: reads everything currently in
@@ -39,11 +38,11 @@ public class DlqReplayService {
     private static final Logger log = LoggerFactory.getLogger(DlqReplayService.class);
     private static final Duration POLL_TIMEOUT = Duration.ofSeconds(3);
     private static final int MAX_POLLS_WAITING_FOR_ASSIGNMENT = 10;
-    private static final long PUBLISH_TIMEOUT_SECONDS = 5;
 
     private final ConsumerFactory<String, String> consumerFactory;
     private final KafkaTemplate<String, String> kafkaTemplate;
     private final String sourceTopic;
+    @Getter
     private final String dlqTopic;
 
     public DlqReplayService(@Qualifier("dlqReplayConsumerFactory") ConsumerFactory<String, String> consumerFactory,
@@ -55,10 +54,6 @@ public class DlqReplayService {
         this.dlqTopic = sourceTopic + ".DLQ";
     }
 
-    public String getDlqTopic() {
-        return dlqTopic;
-    }
-
     /**
      * Republishes all messages currently in the DLQ to the store-events topic.
      *
@@ -68,6 +63,7 @@ public class DlqReplayService {
     public synchronized int replay() {
         int replayed = 0;
         int waitingPolls = 0;
+        log.info("Starting DLQ replay from {} to {}", dlqTopic, sourceTopic);
 
         try (Consumer<String, String> consumer = consumerFactory.createConsumer()) {
             consumer.subscribe(List.of(dlqTopic));
@@ -86,6 +82,7 @@ public class DlqReplayService {
                     continue;
                 }
                 wasAssigned = true;
+                log.debug("DLQ replay polled {} records", records.count());
 
                 Map<TopicPartition, OffsetAndMetadata> done = new HashMap<>();
                 try {
@@ -108,14 +105,9 @@ public class DlqReplayService {
     }
 
     private void republish(ConsumerRecord<String, String> record) {
-        try {
-            kafkaTemplate.send(new ProducerRecord<>(sourceTopic, record.key(), record.value()))
-                    .get(PUBLISH_TIMEOUT_SECONDS, TimeUnit.SECONDS);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            throw new KafkaPublishException("Interrupted while replaying key=" + record.key() + " to " + sourceTopic, e);
-        } catch (ExecutionException | TimeoutException e) {
-            throw new KafkaPublishException("Failed to replay key=" + record.key() + " to " + sourceTopic, e);
-        }
+        log.debug("Replaying key={} partition={} offset={} to {}", record.key(), record.partition(), record.offset(), sourceTopic);
+        KafkaPublishUtility.awaitSend(
+                kafkaTemplate.send(new ProducerRecord<>(sourceTopic, record.key(), record.value())),
+                "replay key=" + record.key() + " to " + sourceTopic);
     }
 }

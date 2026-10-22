@@ -1,5 +1,8 @@
 package com.safeway.ossl.storepipeline.controller;
 
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import com.safeway.ossl.storepipeline.dto.ErrorResponse;
 import com.safeway.ossl.storepipeline.dto.StoreComparisonResult;
 import com.safeway.ossl.storepipeline.dto.StoreRecord;
@@ -33,6 +36,8 @@ import static com.safeway.ossl.storepipeline.constants.OSSLServiceEndPoints.*;
 @Tag(name = "Store Queries", description = "Read a store from SQL, MongoDB, or the cache, and compare them for consistency")
 public class StoreQueryController {
 
+    private static final Logger log = LoggerFactory.getLogger(StoreQueryController.class);
+
     @Autowired
     private StoreQueryService storeQueryService;
 
@@ -50,6 +55,7 @@ public class StoreQueryController {
     public ResponseEntity<StoreRecord> getFromSql(
             @Parameter(description = "Store identifier.", required = true, example = "1001")
             @PathVariable String storeId) {
+        log.info("GET store from SQL requested: storeId={}", storeId);
         return ResponseEntity.ok(storeQueryService.getFromSql(storeId));
     }
 
@@ -67,6 +73,7 @@ public class StoreQueryController {
     public ResponseEntity<StoreRecord> getFromMongo(
             @Parameter(description = "Store identifier.", required = true, example = "1001")
             @PathVariable String storeId) {
+        log.info("GET store from MongoDB requested: storeId={}", storeId);
         return ResponseEntity.ok(storeQueryService.getFromMongo(storeId));
     }
 
@@ -85,6 +92,7 @@ public class StoreQueryController {
     public ResponseEntity<StoreRecord> getFromCache(
             @Parameter(description = "Store identifier.", required = true, example = "1001")
             @PathVariable String storeId) {
+        log.info("GET store from cache requested: storeId={}", storeId);
         return ResponseEntity.ok(storeQueryService.getFromCache(storeId));
     }
 
@@ -103,6 +111,7 @@ public class StoreQueryController {
     public ResponseEntity<StoreComparisonResult> compare(
             @Parameter(description = "Store identifier.", required = true, example = "1001")
             @PathVariable String storeId) {
+        log.info("Store comparison requested: storeId={}", storeId);
         return ResponseEntity.ok(storeQueryService.compare(storeId));
     }
 }
