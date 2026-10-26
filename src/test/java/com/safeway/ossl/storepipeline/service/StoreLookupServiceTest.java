@@ -23,29 +23,29 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Mockito.when;
 
-class StoreQueryServiceTest {
+class StoreLookupServiceTest {
 
     private StoreSqlRepository sqlRepository;
     private StoreMongoRepository mongoRepository;
     private StoreCacheService cacheService;
-    private StoreQueryService storeQueryService;
+    private StoreLookupService storeLookupService;
 
     @BeforeEach
     void setUp() {
         sqlRepository = Mockito.mock(StoreSqlRepository.class);
         mongoRepository = Mockito.mock(StoreMongoRepository.class);
         cacheService = Mockito.mock(StoreCacheService.class);
-        storeQueryService = new StoreQueryService();
-        ReflectionTestUtils.setField(storeQueryService, "sqlRepository", sqlRepository);
-        ReflectionTestUtils.setField(storeQueryService, "mongoRepository", mongoRepository);
-        ReflectionTestUtils.setField(storeQueryService, "cacheService", cacheService);
+        storeLookupService = new StoreLookupService();
+        ReflectionTestUtils.setField(storeLookupService, "sqlRepository", sqlRepository);
+        ReflectionTestUtils.setField(storeLookupService, "mongoRepository", mongoRepository);
+        ReflectionTestUtils.setField(storeLookupService, "cacheService", cacheService);
     }
 
     @Test
     void getFromSql_returnsMappedStoreRecord() {
         when(sqlRepository.findById("1001")).thenReturn(Optional.of(sqlEntity("1001", "Seattle", 7L)));
 
-        StoreRecord result = storeQueryService.getFromSql("1001");
+        StoreRecord result = storeLookupService.getFromSql("1001");
 
         assertEquals("1001", result.getLocationId());
         assertEquals(7L, result.getVersion());
@@ -57,7 +57,7 @@ class StoreQueryServiceTest {
         StoreEntity entity = sqlEntity("1001", "Seattle", 7L);
         when(mongoRepository.findByLocationId("1001")).thenReturn(Optional.of(mongoDocument(entity)));
 
-        StoreRecord result = storeQueryService.getFromMongo("1001");
+        StoreRecord result = storeLookupService.getFromMongo("1001");
 
         assertEquals("1001", result.getLocationId());
         assertEquals(7L, result.getVersion());
@@ -68,7 +68,7 @@ class StoreQueryServiceTest {
     void getFromCache_throwsWhenAbsentFromCacheAndMongo() {
         when(cacheService.get("1001")).thenReturn(Optional.empty());
 
-        assertThrows(StoreNotFoundException.class, () -> storeQueryService.getFromCache("1001"));
+        assertThrows(StoreNotFoundException.class, () -> storeLookupService.getFromCache("1001"));
     }
 
     @Test
@@ -77,7 +77,7 @@ class StoreQueryServiceTest {
         when(sqlRepository.findById("1001")).thenReturn(Optional.of(entity));
         when(mongoRepository.findByLocationId("1001")).thenReturn(Optional.of(mongoDocument(entity)));
 
-        StoreComparisonResult result = storeQueryService.compare("1001");
+        StoreComparisonResult result = storeLookupService.compare("1001");
 
         assertTrue(result.isConsistent());
         assertTrue(result.getMismatchedFields().isEmpty());
@@ -90,7 +90,7 @@ class StoreQueryServiceTest {
         when(sqlRepository.findById("1001")).thenReturn(Optional.of(sqlEntity("1001", "Seattle", 3L)));
         when(mongoRepository.findByLocationId("1001")).thenReturn(Optional.empty());
 
-        StoreComparisonResult result = storeQueryService.compare("1001");
+        StoreComparisonResult result = storeLookupService.compare("1001");
 
         assertFalse(result.isConsistent());
         assertTrue(result.getMismatchedFields().contains("__missing_in_mongo__"));
@@ -103,7 +103,7 @@ class StoreQueryServiceTest {
         when(sqlRepository.findById("1001")).thenReturn(Optional.empty());
         when(mongoRepository.findByLocationId("1001")).thenReturn(Optional.empty());
 
-        assertThrows(StoreNotFoundException.class, () -> storeQueryService.compare("1001"));
+        assertThrows(StoreNotFoundException.class, () -> storeLookupService.compare("1001"));
     }
 
     private static StoreEntity sqlEntity(String locationId, String city, long version) {
@@ -137,4 +137,3 @@ class StoreQueryServiceTest {
         return document;
     }
 }
-

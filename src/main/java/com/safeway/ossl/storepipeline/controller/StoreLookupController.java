@@ -6,7 +6,7 @@ import org.slf4j.LoggerFactory;
 import com.safeway.ossl.storepipeline.dto.ErrorResponse;
 import com.safeway.ossl.storepipeline.dto.StoreComparisonResult;
 import com.safeway.ossl.storepipeline.dto.StoreRecord;
-import com.safeway.ossl.storepipeline.service.StoreQueryService;
+import com.safeway.ossl.storepipeline.service.StoreLookupService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -33,12 +33,12 @@ import static com.safeway.ossl.storepipeline.constants.OSSLServiceEndPoints.*;
 @RestController
 @RequestMapping(OSSL_SERVICE_API_PREFIX)
 @Tag(name = "Store Queries", description = "Read a store from SQL, MongoDB, or the cache, and compare them for consistency")
-public class StoreQueryController {
+public class StoreLookupController {
 
-    private static final Logger log = LoggerFactory.getLogger(StoreQueryController.class);
+    private static final Logger log = LoggerFactory.getLogger(StoreLookupController.class);
 
     @Autowired
-    private StoreQueryService storeQueryService;
+    private StoreLookupService storeLookupService;
 
     @Operation(summary = "Get a store from the SQL database",
             description = "Reads the store directly from the relational (SQL) datastore.")
@@ -55,7 +55,7 @@ public class StoreQueryController {
             @Parameter(description = "Store identifier.", required = true, example = "1001")
             @PathVariable String storeId) {
         log.info("GET store from SQL requested: storeId={}", storeId);
-        return ResponseEntity.ok(storeQueryService.getFromSql(storeId));
+        return ResponseEntity.ok(storeLookupService.getFromSql(storeId));
     }
 
     @Operation(summary = "Get a store from MongoDB",
@@ -73,7 +73,7 @@ public class StoreQueryController {
             @Parameter(description = "Store identifier.", required = true, example = "1001")
             @PathVariable String storeId) {
         log.info("GET store from MongoDB requested: storeId={}", storeId);
-        return ResponseEntity.ok(storeQueryService.getFromMongo(storeId));
+        return ResponseEntity.ok(storeLookupService.getFromMongo(storeId));
     }
 
     @Operation(summary = "Get a store from the cache (cache-aside)",
@@ -92,7 +92,7 @@ public class StoreQueryController {
             @Parameter(description = "Store identifier.", required = true, example = "1001")
             @PathVariable String storeId) {
         log.info("GET store from cache requested: storeId={}", storeId);
-        return ResponseEntity.ok(storeQueryService.getFromCache(storeId));
+        return ResponseEntity.ok(storeLookupService.getFromCache(storeId));
     }
 
     @Operation(summary = "Compare a store's SQL and MongoDB copies",
@@ -111,6 +111,6 @@ public class StoreQueryController {
             @Parameter(description = "Store identifier.", required = true, example = "1001")
             @PathVariable String storeId) {
         log.info("Store comparison requested: storeId={}", storeId);
-        return ResponseEntity.ok(storeQueryService.compare(storeId));
+        return ResponseEntity.ok(storeLookupService.compare(storeId));
     }
 }

@@ -20,7 +20,7 @@ import java.util.Map;
 import java.util.Optional;
 
 @Service
-public class StoreQueryService {
+public class StoreLookupService {
 
     @Autowired
     private StoreSqlRepository sqlRepository;
@@ -29,7 +29,7 @@ public class StoreQueryService {
     @Autowired
     private StoreCacheService cacheService;
 
-    private static final Logger log = LoggerFactory.getLogger(StoreQueryService.class);
+    private static final Logger log = LoggerFactory.getLogger(StoreLookupService.class);
 
     public StoreRecord getFromSql(String locationId) {
         StoreEntity dbRecord = sqlRepository.findById(locationId)
