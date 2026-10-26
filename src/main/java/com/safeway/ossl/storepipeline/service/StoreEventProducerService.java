@@ -1,6 +1,5 @@
 package com.safeway.ossl.storepipeline.service;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.safeway.ossl.storepipeline.dto.StoreRecord;
 import com.safeway.ossl.storepipeline.exception.KafkaPublishException;
 import com.safeway.ossl.storepipeline.utility.KafkaPublishUtility;

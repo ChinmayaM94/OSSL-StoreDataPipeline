@@ -1,114 +1,65 @@
 package com.safeway.ossl.storepipeline.service;
 
-import com.safeway.ossl.storepipeline.exception.KafkaPublishException;
-import org.apache.kafka.clients.consumer.ConsumerRecord;
-import org.apache.kafka.clients.consumer.MockConsumer;
-import org.apache.kafka.clients.consumer.OffsetAndMetadata;
-import org.apache.kafka.clients.consumer.OffsetResetStrategy;
-import org.apache.kafka.clients.producer.ProducerRecord;
-import org.apache.kafka.common.TopicPartition;
+import com.safeway.ossl.storepipeline.dto.DlqReplayResponse;
+import com.safeway.ossl.storepipeline.exception.ConsumerServiceException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
-import org.springframework.kafka.core.ConsumerFactory;
-import org.springframework.kafka.core.KafkaTemplate;
-import org.springframework.kafka.support.SendResult;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.test.web.client.MockRestServiceServer;
+import org.springframework.web.client.RestClient;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.CompletableFuture;
+import java.io.IOException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.times;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.springframework.test.web.client.match.MockRestRequestMatchers.method;
+import static org.springframework.test.web.client.match.MockRestRequestMatchers.requestTo;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.withServerError;
+import static org.springframework.test.web.client.response.MockRestResponseCreators.withSuccess;
 
 class DlqReplayServiceTest {
 
-    private static final String TOPIC = "ossl-store-events";
-    private static final String DLQ = TOPIC + ".DLQ";
-    private static final TopicPartition PARTITION = new TopicPartition(DLQ, 0);
+    private static final String URL = "http://consumer:8081/api/stores/dlq/replay";
 
-    private ConsumerFactory<String, String> consumerFactory;
-    private KafkaTemplate<String, String> kafkaTemplate;
-    private MockConsumer<String, String> consumer;
-    private final Map<TopicPartition, Long> committed = new HashMap<>();
+    private MockRestServiceServer server;
     private DlqReplayService service;
 
     @BeforeEach
-    @SuppressWarnings("unchecked")
     void setUp() {
-        consumerFactory = mock(ConsumerFactory.class);
-        kafkaTemplate = mock(KafkaTemplate.class);
-        consumer = new MockConsumer<>(OffsetResetStrategy.EARLIEST) {
-            @Override
-            public synchronized void commitSync(Map<TopicPartition, OffsetAndMetadata> offsets) {
-                offsets.forEach((tp, om) -> committed.put(tp, om.offset()));
-                super.commitSync(offsets);
-            }
-        };
-        when(consumerFactory.createConsumer()).thenReturn(consumer);
-        service = new DlqReplayService(consumerFactory, kafkaTemplate, TOPIC);
-    }
-
-    @SuppressWarnings("unchecked")
-    private void sendSucceeds() {
-        when(kafkaTemplate.send(any(ProducerRecord.class)))
-                .thenReturn(CompletableFuture.completedFuture(mock(SendResult.class)));
-    }
-
-    private void dlqContains(String... keysAndValues) {
-        consumer.schedulePollTask(() -> {
-            consumer.rebalance(List.of(PARTITION));
-            consumer.updateBeginningOffsets(Map.of(PARTITION, 0L));
-            for (int i = 0; i < keysAndValues.length; i += 2) {
-                consumer.addRecord(new ConsumerRecord<>(DLQ, 0, i / 2, keysAndValues[i], keysAndValues[i + 1]));
-            }
-        });
+        RestClient.Builder builder = RestClient.builder().baseUrl("http://consumer:8081");
+        server = MockRestServiceServer.bindTo(builder).build();
+        service = new DlqReplayService(builder.build());
     }
 
     @Test
-    @SuppressWarnings("unchecked")
-    void replay_republishesEveryDlqMessageWithItsKeyAndCommitsOffsets() {
-        sendSucceeds();
-        dlqContains("1001", "{\"locationId\":\"1001\"}", "1002", "{\"locationId\":\"1002\"}");
+    void replay_postsToConsumerServiceAndMapsResponse() {
+        server.expect(requestTo(URL)).andExpect(method(HttpMethod.POST))
+                .andRespond(withSuccess("{\"dlqTopic\":\"ossl-store-events.DLQ\",\"replayed\":3}", MediaType.APPLICATION_JSON));
 
-        int replayed = service.replay();
+        DlqReplayResponse response = service.replay();
 
-        assertEquals(2, replayed);
-        ArgumentCaptor<ProducerRecord<String, String>> captor = ArgumentCaptor.forClass(ProducerRecord.class);
-        verify(kafkaTemplate, times(2)).send(captor.capture());
-        assertEquals(TOPIC, captor.getAllValues().get(0).topic());
-        assertEquals("1001", captor.getAllValues().get(0).key());
-        assertEquals("{\"locationId\":\"1002\"}", captor.getAllValues().get(1).value());
-        assertEquals(2L, committed.get(PARTITION));
+        assertEquals("ossl-store-events.DLQ", response.dlqTopic());
+        assertEquals(3, response.replayed());
+        server.verify();
     }
 
     @Test
-    @SuppressWarnings("unchecked")
-    void replay_whenDlqIsEmpty_replaysNothing() {
-        dlqContains();
+    void replay_consumerReturnsError_mapsTo502() {
+        server.expect(requestTo(URL)).andRespond(withServerError());
 
-        assertEquals(0, service.replay());
-        verify(kafkaTemplate, never()).send(any(ProducerRecord.class));
+        ConsumerServiceException ex = assertThrows(ConsumerServiceException.class, service::replay);
+
+        assertEquals(HttpStatus.BAD_GATEWAY, ex.getStatus());
     }
 
     @Test
-    @SuppressWarnings("unchecked")
-    void replay_whenRepublishFails_throwsAndDoesNotCommitTheFailedMessage() {
-        CompletableFuture<SendResult<String, String>> ok = CompletableFuture.completedFuture(mock(SendResult.class));
-        CompletableFuture<SendResult<String, String>> failed = CompletableFuture.failedFuture(new RuntimeException("broker down"));
-        when(kafkaTemplate.send(any(ProducerRecord.class))).thenReturn(ok, failed);
-        dlqContains("1001", "{}", "1002", "{}");
+    void replay_consumerUnreachable_mapsTo503() {
+        server.expect(requestTo(URL)).andRespond(request -> { throw new IOException("connection refused"); });
 
-        assertThrows(KafkaPublishException.class, () -> service.replay());
+        ConsumerServiceException ex = assertThrows(ConsumerServiceException.class, service::replay);
 
-        // only the first message (offset 0 -> committed 1) was replayed successfully
-        assertEquals(1L, committed.get(PARTITION));
+        assertEquals(HttpStatus.SERVICE_UNAVAILABLE, ex.getStatus());
     }
 }

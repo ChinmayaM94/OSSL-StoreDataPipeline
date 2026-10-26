@@ -1,12 +1,8 @@
 package com.safeway.ossl.storepipeline.config;
 
 import com.safeway.ossl.storepipeline.dto.StoreChangeEvent;
-import com.safeway.ossl.storepipeline.dto.StoreRecord;
-import com.safeway.ossl.storepipeline.listener.StoreEventConsumer;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.common.serialization.StringDeserializer;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -22,8 +18,6 @@ import java.util.Map;
 
 @Configuration
 public class KafkaConsumerConfig {
-
-    private static final Logger log = LoggerFactory.getLogger(KafkaConsumerConfig.class);
 
     @Value("${spring.kafka.bootstrap-servers}")
     private String bootstrapServers;
@@ -43,24 +37,6 @@ public class KafkaConsumerConfig {
     }
 
     @Bean
-    public ConsumerFactory<String, StoreRecord> storeRecordConsumerFactory() {
-        Map<String, Object> props = baseConsumerProps();
-        props.put(ErrorHandlingDeserializer.VALUE_DESERIALIZER_CLASS, JsonDeserializer.class.getName());
-        return new DefaultKafkaConsumerFactory<>(props, new StringDeserializer(),
-                new ErrorHandlingDeserializer<>(new JsonDeserializer<>(StoreRecord.class, false)));
-    }
-
-    @Bean
-    public ConcurrentKafkaListenerContainerFactory<String, StoreRecord> storeRecordKafkaListenerContainerFactory(
-            DefaultErrorHandler kafkaErrorHandler) {
-        ConcurrentKafkaListenerContainerFactory<String, StoreRecord> factory =
-                new ConcurrentKafkaListenerContainerFactory<>();
-        factory.setConsumerFactory(storeRecordConsumerFactory());
-        factory.setCommonErrorHandler(kafkaErrorHandler);
-        return factory;
-    }
-
-    @Bean
     public ConsumerFactory<String, StoreChangeEvent> storeChangeEventConsumerFactory() {
         Map<String, Object> props = baseConsumerProps();
         props.put(ErrorHandlingDeserializer.VALUE_DESERIALIZER_CLASS, JsonDeserializer.class.getName());
@@ -76,17 +52,5 @@ public class KafkaConsumerConfig {
         factory.setConsumerFactory(storeChangeEventConsumerFactory());
         factory.setCommonErrorHandler(kafkaErrorHandler);
         return factory;
-    }
-
-    /** Used by the DLQ replay: reads dead-lettered records as raw text, commits only after a successful replay. */
-    @Bean
-    public ConsumerFactory<String, String> dlqReplayConsumerFactory() {
-        Map<String, Object> props = new HashMap<>();
-        props.put(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
-        props.put(ConsumerConfig.GROUP_ID_CONFIG, groupId + "-dlq-replay");
-        props.put(ConsumerConfig.AUTO_OFFSET_RESET_CONFIG, "earliest");
-        props.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, false);
-        props.put(ConsumerConfig.MAX_POLL_RECORDS_CONFIG, 100);
-        return new DefaultKafkaConsumerFactory<>(props, new StringDeserializer(), new StringDeserializer());
     }
 }

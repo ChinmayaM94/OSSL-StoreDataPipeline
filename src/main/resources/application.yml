@@ -36,6 +36,12 @@ spring:
     mongodb:
       uri: ${MONGODB_URI:mongodb://localhost:27017/ossldb}
 
+# Downstream microservice called over REST (DLQ replay lives there).
+consumer-service:
+  base-url: ${CONSUMER_SERVICE_BASE_URL:http://localhost:8081}
+  connect-timeout: 2s
+  read-timeout: 60s   # a replay polls the DLQ and can take a while
+
 # Custom application properties consumed by the producer/consumer services.
 # Overridable via env vars for different environments (dev/qa/prod).
 kafka:
@@ -44,8 +50,6 @@ kafka:
     change-events: ${CHANGE_EVENTS_TOPIC:ossl-store-change-events}
   consumer:
     group-id: ${KAFKA_CONSUMER_GROUP_ID:ossl-store-pipeline-group}
-    sql-group-id: ${KAFKA_SQL_CONSUMER_GROUP_ID:ossl-store-sql-group}
-    mongo-group-id: ${KAFKA_MONGO_CONSUMER_GROUP_ID:ossl-store-mongo-group}
 
 # springdoc-openapi (Swagger) configuration
 springdoc:

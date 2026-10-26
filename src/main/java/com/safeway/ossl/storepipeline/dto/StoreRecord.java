@@ -1,11 +1,8 @@
 package com.safeway.ossl.storepipeline.dto;
 
-import com.fasterxml.jackson.annotation.JsonIgnore;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import io.swagger.v3.oas.annotations.media.Schema;
-import lombok.Builder;
 import lombok.Data;
 
 @Data
@@ -23,7 +20,4 @@ public class StoreRecord {
         setStoreInfo(storeInfo);
         setVersion(version);
     }
-
-    @JsonIgnore
-    public JsonNode getSourceField(String path) { return storeInfo.path(path); }
 }

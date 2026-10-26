@@ -32,18 +32,6 @@ public class GlobalExceptionHandler {
 
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
-    @ExceptionHandler(EmptyFileException.class)
-    public ResponseEntity<Map<String, Object>> handleEmptyFile(EmptyFileException ex) {
-        log.warn("Empty/missing file upload: {}", ex.getMessage());
-        return build(HttpStatus.BAD_REQUEST, ex.getMessage());
-    }
-
-    @ExceptionHandler(InvalidFileTypeException.class)
-    public ResponseEntity<Map<String, Object>> handleInvalidFileType(InvalidFileTypeException ex) {
-        log.warn("Invalid file type uploaded: {}", ex.getMessage());
-        return build(HttpStatus.BAD_REQUEST, ex.getMessage());
-    }
-
     @ExceptionHandler(HandlerMethodValidationException.class)
     public ResponseEntity<Map<String, Object>> handleMethodValidation(HandlerMethodValidationException ex) {
         String message = ex.getAllErrors().stream()
@@ -102,6 +90,12 @@ public class GlobalExceptionHandler {
                     || name.startsWith("java.sql") || name.startsWith("com.zaxxer")) return "The SQL database";
         }
         return "A data store";
+    }
+
+    @ExceptionHandler(ConsumerServiceException.class)
+    public ResponseEntity<Map<String, Object>> handleConsumerService(ConsumerServiceException ex) {
+        log.error("Consumer service call failed: {}", ex.getMessage());
+        return build(ex.getStatus(), ex.getMessage());
     }
 
     @ExceptionHandler(Exception.class)

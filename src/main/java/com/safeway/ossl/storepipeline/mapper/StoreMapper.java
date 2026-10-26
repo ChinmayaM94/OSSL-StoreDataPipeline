@@ -1,6 +1,5 @@
 package com.safeway.ossl.storepipeline.mapper;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
@@ -22,53 +21,8 @@ public final class StoreMapper {
     private StoreMapper() { }
 
     // ---------------------------------------------------------------
-    // StoreRecord <-> StoreEntity (+ AddressEntity)
+    // StoreEntity -> StoreRecord
     // ---------------------------------------------------------------
-
-    public static StoreEntity toEntity(StoreRecord record, StoreEntity existing) {
-        StoreEntity entity = existing == null ? new StoreEntity() : existing;
-        JsonNode p = record.getStoreInfo();
-
-        entity.setLocationId(record.getLocationId());
-        entity.setDepartments(joinDepartments(p.path("departments")));
-        entity.setIsEcomStore(boolOrNull(p, "isEcomStore"));
-        entity.setTimezone(textOrNull(p, "timezone"));
-        entity.setBrandName(textOrNull(p.path("brand"), "name"));
-        entity.setDivisionName(textOrNull(p.path("division"), "name"));
-        entity.setPhone(textOrNull(p, "phone"));
-        entity.setLatitude(numberOrNull(p, "latitude"));
-        entity.setLongitude(numberOrNull(p, "longitude"));
-
-        JsonNode ecom = p.path("ecomStore");
-        entity.setEcomOperatingStatus(textOrNull(ecom, "operatingStatus"));
-        entity.setEcomIsDugStore(boolOrNull(ecom, "isDUGStore"));
-        entity.setEcomIsDeliveryStore(boolOrNull(ecom, "isDeliveryStore"));
-        JsonNode feat = ecom.path("storeFeatures");
-        entity.setEcomFeatIsExpressStore(boolOrNull(feat, "isExpressStore"));
-        entity.setEcomFeatIsWgdEnabled(boolOrNull(feat, "isWGDEnabled"));
-        entity.setEcomFeatIsFlashDugEnabled(boolOrNull(feat, "isFlashDugEnabled"));
-        entity.setEcomFeatIsFlashDeliveryEnabled(boolOrNull(feat, "isFlashDeliveryEnabled"));
-
-        entity.setAddress(toAddressEntity(p.path("address"), entity));
-
-        // Never move the stored version backwards (replayed / out-of-order messages).
-        Long current = entity.getVersion();
-        Long incoming = record.getVersion();
-        if (incoming != null) entity.setVersion(current == null ? incoming : Math.max(current, incoming));
-        else if (current == null) entity.setVersion(0L);
-        return entity;
-    }
-
-    private static AddressEntity toAddressEntity(JsonNode address, StoreEntity owner) {
-        AddressEntity entity = owner.getAddress() != null ? owner.getAddress() : new AddressEntity();
-        entity.setLocationId(owner.getLocationId());
-        entity.setStore(owner);
-        entity.setAddressLine1(textOrNull(address, "line1"));
-        entity.setAddressCity(textOrNull(address, "city"));
-        entity.setAddressState(textOrNull(address, "state"));
-        entity.setAddressZipcode(textOrNull(address, "zipcode"));
-        return entity;
-    }
 
     public static StoreRecord toRecord(StoreEntity entity) {
         ObjectNode payload = JsonNodeFactory.instance.objectNode();
@@ -152,31 +106,6 @@ public final class StoreMapper {
             return JsonNodeFactory.instance.objectNode();
         }
         return JSON.convertValue(map, ObjectNode.class);
-    }
-
-    private static String joinDepartments(JsonNode departments) {
-        if (!departments.isArray()) return null;
-        StringBuilder sb = new StringBuilder();
-        for (JsonNode d : departments) {
-            if (sb.length() > 0) sb.append(", ");
-            sb.append(d.asText());
-        }
-        return sb.toString();
-    }
-
-    private static String textOrNull(JsonNode parent, String field) {
-        JsonNode n = parent.path(field);
-        return n.isMissingNode() || n.isNull() ? null : n.asText();
-    }
-
-    private static Boolean boolOrNull(JsonNode parent, String field) {
-        JsonNode n = parent.path(field);
-        return n.isBoolean() ? n.asBoolean() : null;
-    }
-
-    private static Double numberOrNull(JsonNode parent, String field) {
-        JsonNode n = parent.path(field);
-        return n.isNumber() ? n.asDouble() : null;
     }
 
     private static void putIfNotNull(ObjectNode node, String field, String value) {

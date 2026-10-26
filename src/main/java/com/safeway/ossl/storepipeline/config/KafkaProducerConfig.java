@@ -56,15 +56,4 @@ public class KafkaProducerConfig {
     public KafkaTemplate<String, JsonNode> storePayloadKafkaTemplate() {
         return new KafkaTemplate<>(storePayloadProducerFactory());
     }
-
-    /** Used by the DLQ replay: republishes the dead-lettered JSON text unchanged. */
-    @Bean
-    public KafkaTemplate<String, String> dlqReplayKafkaTemplate() {
-        Map<String, Object> configProps = new HashMap<>();
-        configProps.put(ProducerConfig.BOOTSTRAP_SERVERS_CONFIG, bootstrapServers);
-        configProps.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
-        configProps.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
-        configProps.put(ProducerConfig.ACKS_CONFIG, "all");
-        return new KafkaTemplate<>(new DefaultKafkaProducerFactory<String, String>(configProps));
-    }
 }

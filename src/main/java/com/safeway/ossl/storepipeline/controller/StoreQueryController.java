@@ -6,7 +6,6 @@ import org.slf4j.LoggerFactory;
 import com.safeway.ossl.storepipeline.dto.ErrorResponse;
 import com.safeway.ossl.storepipeline.dto.StoreComparisonResult;
 import com.safeway.ossl.storepipeline.dto.StoreRecord;
-import com.safeway.ossl.storepipeline.exception.StoreNotFoundException;
 import com.safeway.ossl.storepipeline.service.StoreQueryService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
