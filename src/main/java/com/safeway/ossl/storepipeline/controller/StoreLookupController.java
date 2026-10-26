@@ -14,7 +14,6 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -37,8 +36,11 @@ public class StoreLookupController {
 
     private static final Logger log = LoggerFactory.getLogger(StoreLookupController.class);
 
-    @Autowired
-    private StoreLookupService storeLookupService;
+    private final StoreLookupService storeLookupService;
+
+    public StoreLookupController(StoreLookupService storeLookupService) {
+        this.storeLookupService = storeLookupService;
+    }
 
     @Operation(summary = "Get a store from the SQL database",
             description = "Reads the store directly from the relational (SQL) datastore.")

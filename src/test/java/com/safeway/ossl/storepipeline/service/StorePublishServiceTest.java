@@ -8,7 +8,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Optional;
 
@@ -29,9 +28,7 @@ class StorePublishServiceTest {
     void setUp() {
         sqlRepository = Mockito.mock(StoreSqlRepository.class);
         storeEventProducerService = Mockito.mock(StoreEventProducerService.class);
-        storePublishService = new StorePublishService();
-        ReflectionTestUtils.setField(storePublishService, "sqlRepository", sqlRepository);
-        ReflectionTestUtils.setField(storePublishService, "storeEventProducerService", storeEventProducerService);
+        storePublishService = new StorePublishService(sqlRepository, storeEventProducerService);
     }
 
     @Test

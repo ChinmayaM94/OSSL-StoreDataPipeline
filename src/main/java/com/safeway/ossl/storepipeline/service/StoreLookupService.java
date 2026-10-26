@@ -11,7 +11,6 @@ import com.safeway.ossl.storepipeline.repository.StoreSqlRepository;
 import com.safeway.ossl.storepipeline.utility.StoreComparisonUtility;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import java.util.ArrayList;
 import java.util.LinkedHashMap;
@@ -22,12 +21,15 @@ import java.util.Optional;
 @Service
 public class StoreLookupService {
 
-    @Autowired
-    private StoreSqlRepository sqlRepository;
-    @Autowired
-    private StoreMongoRepository mongoRepository;
-    @Autowired
-    private StoreCacheService cacheService;
+    private final StoreSqlRepository sqlRepository;
+    private final StoreMongoRepository mongoRepository;
+    private final StoreCacheService cacheService;
+
+    public StoreLookupService(StoreSqlRepository sqlRepository, StoreMongoRepository mongoRepository, StoreCacheService cacheService) {
+        this.sqlRepository = sqlRepository;
+        this.mongoRepository = mongoRepository;
+        this.cacheService = cacheService;
+    }
 
     private static final Logger log = LoggerFactory.getLogger(StoreLookupService.class);
 

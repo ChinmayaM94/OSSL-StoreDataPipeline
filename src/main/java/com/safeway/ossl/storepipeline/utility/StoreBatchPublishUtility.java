@@ -10,6 +10,7 @@ import com.safeway.ossl.storepipeline.entity.StoreEntity;
 import com.safeway.ossl.storepipeline.exception.KafkaPublishException;
 import com.safeway.ossl.storepipeline.repository.StoreSqlRepository;
 import com.safeway.ossl.storepipeline.service.StoreEventProducerService;
+import io.micrometer.core.instrument.MeterRegistry;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -32,6 +33,7 @@ public class StoreBatchPublishUtility {
 
     private final StoreEventProducerService producer;
     private final StoreSqlRepository sqlRepository;
+    private final MeterRegistry meterRegistry;
 
     /** A validated row waiting to be published. */
     public record PendingRow(int rowNumber, String id, ObjectNode payload) {}
@@ -70,12 +72,14 @@ public class StoreBatchPublishUtility {
             try {
                 futures.get(i).join();
                 processed++;
+                meterRegistry.counter("ossl.store.publish", "result", "success").increment();
             } catch (Exception ex) {
                 Throwable cause = ex instanceof CompletionException && ex.getCause() != null ? ex.getCause() : ex;
                 String field = cause instanceof KafkaPublishException ? "kafka" : "csv";
                 log.warn("Publish failed for row={} storeId={} field={}: {}", pending.get(i).rowNumber(),
                         pending.get(i).id(), field, ExceptionUtility.errorMessage(cause));
                 errors.add(new RowError(pending.get(i).rowNumber(), field, ExceptionUtility.errorMessage(cause)));
+                meterRegistry.counter("ossl.store.publish", "result", "failure", "reason", field).increment();
             }
         }
 

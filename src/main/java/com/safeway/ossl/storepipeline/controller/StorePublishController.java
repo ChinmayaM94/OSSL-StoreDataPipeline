@@ -13,7 +13,6 @@ import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.tags.Tag;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -37,8 +36,11 @@ public class StorePublishController {
 
     private static final Logger log = LoggerFactory.getLogger(StorePublishController.class);
 
-    @Autowired
-    private StorePublishService storePublishService;
+    private final StorePublishService storePublishService;
+
+    public StorePublishController(StorePublishService storePublishService) {
+        this.storePublishService = storePublishService;
+    }
 
     @Operation(
             summary = "Publish a store to Kafka",

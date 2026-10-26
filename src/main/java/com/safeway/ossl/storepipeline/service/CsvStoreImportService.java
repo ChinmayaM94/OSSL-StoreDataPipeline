@@ -13,7 +13,6 @@ import com.safeway.ossl.storepipeline.utility.StoreBatchPublishUtility;
 import com.safeway.ossl.storepipeline.utility.StoreBatchPublishUtility.PendingRow;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -30,8 +29,11 @@ public class CsvStoreImportService {
 
     private static final Logger log = LoggerFactory.getLogger(CsvStoreImportService.class);
 
-    @Autowired
-    private StoreBatchPublishUtility batchPublisher;
+    private final StoreBatchPublishUtility batchPublisher;
+
+    public CsvStoreImportService(StoreBatchPublishUtility batchPublisher) {
+        this.batchPublisher = batchPublisher;
+    }
 
     public ImportResult importCsv(MultipartFile file) {
         List<RowError> errors = new ArrayList<>();

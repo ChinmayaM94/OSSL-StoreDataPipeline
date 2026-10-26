@@ -11,7 +11,6 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.springframework.mock.web.MockMultipartFile;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
@@ -51,9 +50,9 @@ class CsvStoreImportServiceTest {
         sqlRepository = Mockito.mock(StoreSqlRepository.class);
         when(producerService.publishAsync(any(StoreRecord.class)))
                 .thenReturn(CompletableFuture.completedFuture(null));
-        csvStoreImportService = new CsvStoreImportService();
-        ReflectionTestUtils.setField(csvStoreImportService, "batchPublisher",
-                new StoreBatchPublishUtility(producerService, sqlRepository));
+        csvStoreImportService = new CsvStoreImportService(
+                new StoreBatchPublishUtility(producerService, sqlRepository,
+                        new io.micrometer.core.instrument.simple.SimpleMeterRegistry()));
     }
 
     @Test

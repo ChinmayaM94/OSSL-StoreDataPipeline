@@ -7,7 +7,6 @@ import com.safeway.ossl.storepipeline.mapper.StoreMapper;
 import com.safeway.ossl.storepipeline.repository.StoreSqlRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 
@@ -16,11 +15,14 @@ public class StorePublishService {
 
     private static final Logger log = LoggerFactory.getLogger(StorePublishService.class);
 
-    @Autowired
-    private StoreSqlRepository sqlRepository;
+    private final StoreSqlRepository sqlRepository;
 
-    @Autowired
-    private StoreEventProducerService storeEventProducerService;
+    private final StoreEventProducerService storeEventProducerService;
+
+    public StorePublishService(StoreSqlRepository sqlRepository, StoreEventProducerService storeEventProducerService) {
+        this.sqlRepository = sqlRepository;
+        this.storeEventProducerService = storeEventProducerService;
+    }
 
     public StoreRecord publish(String storeId) {
         log.info("Publishing storeId={} from SQL to Kafka", storeId);

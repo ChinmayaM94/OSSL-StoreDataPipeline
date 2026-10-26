@@ -12,7 +12,6 @@ import com.safeway.ossl.storepipeline.repository.StoreSqlRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
-import org.springframework.test.util.ReflectionTestUtils;
 
 import java.time.Instant;
 import java.util.Optional;
@@ -35,10 +34,7 @@ class StoreLookupServiceTest {
         sqlRepository = Mockito.mock(StoreSqlRepository.class);
         mongoRepository = Mockito.mock(StoreMongoRepository.class);
         cacheService = Mockito.mock(StoreCacheService.class);
-        storeLookupService = new StoreLookupService();
-        ReflectionTestUtils.setField(storeLookupService, "sqlRepository", sqlRepository);
-        ReflectionTestUtils.setField(storeLookupService, "mongoRepository", mongoRepository);
-        ReflectionTestUtils.setField(storeLookupService, "cacheService", cacheService);
+        storeLookupService = new StoreLookupService(sqlRepository, mongoRepository, cacheService);
     }
 
     @Test

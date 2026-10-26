@@ -1,4 +1,5 @@
-# Local dev backing services for ossl-store-pipeline: PostgreSQL, Kafka and MongoDB.
+# Local dev backing services for ossl-store-pipeline: PostgreSQL, Kafka and MongoDB,
+# plus monitoring: Prometheus (9090), Grafana (3000, admin/admin) and exporters.
 #
 # Usage:
 #   docker compose up -d        # start all services in the background
@@ -41,8 +42,9 @@ services:
     environment:
       KAFKA_NODE_ID: 1
       KAFKA_PROCESS_ROLES: broker,controller
-      KAFKA_LISTENERS: PLAINTEXT://:9092,CONTROLLER://:9093
-      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092
+      KAFKA_LISTENERS: PLAINTEXT://:9092,DOCKER://:9094,CONTROLLER://:9093
+      KAFKA_ADVERTISED_LISTENERS: PLAINTEXT://localhost:9092,DOCKER://kafka:9094
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT,DOCKER:PLAINTEXT
       KAFKA_CONTROLLER_LISTENER_NAMES: CONTROLLER
       KAFKA_CONTROLLER_QUORUM_VOTERS: 1@localhost:9093
       KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
@@ -72,6 +74,57 @@ services:
       retries: 10
       start_period: 10s
 
+  prometheus:
+    image: prom/prometheus:v2.53.0
+    container_name: ossl-prometheus
+    ports:
+      - "9090:9090"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+
+  grafana:
+    image: grafana/grafana:11.1.0
+    container_name: ossl-grafana
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+    volumes:
+      - ossl-grafana-data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/var/lib/grafana/dashboards:ro
+    depends_on:
+      - prometheus
+
+  # Exporters (Kafka consumer lag, Postgres and Mongo health) scraped by Prometheus.
+  kafka-exporter:
+    image: danielqsj/kafka-exporter:v1.7.0
+    container_name: ossl-kafka-exporter
+    command: ["--kafka.server=kafka:9094"]
+    restart: unless-stopped
+    depends_on:
+      kafka:
+        condition: service_healthy
+
+  postgres-exporter:
+    image: prometheuscommunity/postgres-exporter:v0.15.0
+    container_name: ossl-postgres-exporter
+    environment:
+      DATA_SOURCE_NAME: "postgresql://cmoo385:postgres@postgres:5432/ossldb?sslmode=disable"
+    depends_on:
+      - postgres
+
+  mongodb-exporter:
+    image: percona/mongodb_exporter:0.40
+    container_name: ossl-mongodb-exporter
+    command: ["--mongodb.uri=mongodb://mongodb:27017", "--collect-all", "--compatible-mode"]
+    depends_on:
+      - mongodb
+
 volumes:
+  ossl-grafana-data:
   ossl-mongo-data:
   ossl-postgres-data:
